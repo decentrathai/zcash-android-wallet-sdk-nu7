@@ -114,6 +114,8 @@ mod migration_plan_cache;
 mod migration_send_max;
 mod r0;
 mod rng;
+#[cfg(test)]
+mod test_vectors;
 mod tor;
 mod utils;
 // Voting is disabled on this branch: the `zcash_voting` dependency these sources need is
@@ -321,14 +323,14 @@ fn encode_account<'a, P: Parameters>(
     account: zcash_client_sqlite::wallet::Account,
 ) -> jni::errors::Result<JObject<'a>> {
     let ufvk = match account.ufvk() {
-        Some(ufvk) => env.new_string(ufvk.encode(network))?.into(),
+        Some(ufvk) => env.new_string(r0::encode_ufvk(ufvk, network))?.into(),
         None => JObject::null(),
     };
 
     let uivk = match account.ufvk() {
         Some(ufvk) => {
             let uivk = ufvk.to_unified_incoming_viewing_key();
-            env.new_string(uivk.encode(network))?.into()
+            env.new_string(r0::encode_uivk(&uivk, network))?.into()
         }
         None => JObject::null(),
     };
@@ -755,7 +757,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustBackend_getCurren
             UnifiedAddressRequest::AllAvailableKeys,
         ) {
             Ok(Some(addr)) => {
-                let addr_str = addr.encode(&network);
+                let addr_str = r0::encode_ua(&addr, &network);
                 let output = env
                     .new_string(addr_str)
                     .expect("Couldn't create Java string!");
@@ -916,7 +918,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustBackend_getNextAv
 
         match db_data.get_next_available_address(account_uuid, address_request) {
             Ok(Some((ua, _))) => {
-                let addr_str = ua.encode(&network);
+                let addr_str = r0::encode_ua(&ua, &network);
                 let output = env
                     .new_string(addr_str)
                     .expect("Couldn't create Java string!");
@@ -2832,7 +2834,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_de
                     .map_err(|e| {
                         anyhow!("error generating unified spending key from seed: {:?}", e)
                     })
-                    .map(|usk| usk.to_unified_full_viewing_key().encode(&network))
+                    .map(|usk| r0::encode_ufvk(&usk.to_unified_full_viewing_key(), &network))
             })
             .collect::<Result<_, _>>()?;
 
@@ -2873,7 +2875,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_de
                 UnifiedAddressRequest::AllAvailableKeys,
             )
             .expect("At least one Unified Address should be derivable");
-        let address_str = ua.encode(&network);
+        let address_str = r0::encode_ua(&ua, &network);
         let output = env
             .new_string(address_str)
             .expect("Couldn't create Java string!");
@@ -2900,7 +2902,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_de
         // Derive the default Unified Address (containing the default Sapling payment
         // address that older SDKs used).
         let (ua, _) = ufvk.default_address(UnifiedAddressRequest::AllAvailableKeys)?;
-        let address_str = ua.encode(&network);
+        let address_str = r0::encode_ua(&ua, &network);
         let output = env
             .new_string(address_str)
             .expect("Couldn't create Java string!");
@@ -2926,7 +2928,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_de
         let ufvk = usk.to_unified_full_viewing_key();
 
         let output = env
-            .new_string(ufvk.encode(&network))
+            .new_string(r0::encode_ufvk(&ufvk, &network))
             .expect("Couldn't create Java string!");
 
         Ok(output.into_raw())
@@ -2948,6 +2950,75 @@ fn encode_metadata_key<'a>(
     )?)
 }
 
+/// The ZIP 325 account metadata key for `account` (the derivation behind
+/// `deriveAccountMetadataKeyFromSeed`).
+fn account_metadata_key(
+    seed: &[u8],
+    coin_type: u32,
+    account: zip32::AccountId,
+) -> anyhow::Result<zip32::registered::SecretKey> {
+    Ok(zip32::registered::SecretKey::from_subpath(
+        b"MetadataKeys",
+        seed,
+        // TODO: Change this to whatever ZIP number is assigned to the metadata key ZIP draft.
+        325,
+        &[
+            PathElement::new(ChildIndex::hardened(coin_type), &[]),
+            PathElement::new(ChildIndex::hardened(account.into()), &[]),
+        ],
+    )?)
+}
+
+/// The private-use metadata keys under `account_metadata_key` (the derivation behind
+/// `derivePrivateUseMetadataKey`): the inherent subtree's single key when `ufvk_string` is
+/// `None`, otherwise one key per FVK item of the UFVK, in preference order.
+fn private_use_metadata_keys(
+    account_metadata_key: &zip32::registered::SecretKey,
+    ufvk_string: Option<&str>,
+    expected_net: NetworkType,
+    private_use_subject: &[u8],
+) -> anyhow::Result<Vec<zip32::registered::SecretKey>> {
+    let keys = match ufvk_string {
+        // For the inherent subtree, there is only ever one key.
+        None => vec![
+            account_metadata_key
+                .derive_child_with_tag(ChildIndex::hardened(0), &[])
+                .derive_child_with_tag(ChildIndex::PRIVATE_USE, private_use_subject),
+        ],
+        // For the external subtree, we derive keys from the UFVK's items.
+        Some(ufvk_string) => {
+            // The revision (R0 `uview` or R2 `uvf`) does not affect the derivation: `items()`
+            // returns the FVK data items only, in preference order, for either revision.
+            let (net, _revision, ufvk) =
+                unified::Ufvk::decode(ufvk_string).map_err(|e| anyhow!("{e}"))?;
+            if net != expected_net {
+                return Err(anyhow!(
+                    "UFVK is for network {:?} but we expected {:?}",
+                    net,
+                    expected_net,
+                ));
+            }
+
+            // Any metadata should always be associated with the key derived from the
+            // most preferred FVK item. However, we don't know which FVK items the
+            // UFVK contained the last time we were asked to derive keys. So we derive
+            // every key and return them to the caller in preference order. If the
+            // caller finds data associated with an older FVK item, they will migrate
+            // it to the first key we return.
+            ufvk.items()
+                .into_iter()
+                .map(|fvk_item| {
+                    account_metadata_key
+                        .derive_child_with_tag(ChildIndex::hardened(1), &[])
+                        .derive_child_with_tag(ChildIndex::hardened(0), &fvk_item.typed_encoding())
+                        .derive_child_with_tag(ChildIndex::PRIVATE_USE, private_use_subject)
+                })
+                .collect()
+        }
+    };
+    Ok(keys)
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_deriveAccountMetadataKeyFromSeed<
     'local,
@@ -2965,16 +3036,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_de
         let seed = secret_from_jni(env, seed)?;
         let account = zip32_account_index_from_jlong(account_index)?;
 
-        let key = zip32::registered::SecretKey::from_subpath(
-            b"MetadataKeys",
-            seed.expose_secret(),
-            // TODO: Change this to whatever ZIP number is assigned to the metadata key ZIP draft.
-            325,
-            &[
-                PathElement::new(ChildIndex::hardened(network.coin_type()), &[]),
-                PathElement::new(ChildIndex::hardened(account.into()), &[]),
-            ],
-        )?;
+        let key = account_metadata_key(seed.expose_secret(), network.coin_type(), account)?;
 
         Ok(encode_metadata_key(env, key)?.into_raw())
     });
@@ -3017,48 +3079,12 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_de
             zip32::registered::SecretKey::from_parts(sk, chain_code)
         };
 
-        let private_use_keys = match ufvk_string {
-            // For the inherent subtree, there is only ever one key.
-            None => vec![
-                account_metadata_key
-                    .derive_child_with_tag(ChildIndex::hardened(0), &[])
-                    .derive_child_with_tag(ChildIndex::PRIVATE_USE, &private_use_subject),
-            ],
-            // For the external subtree, we derive keys from the UFVK's items.
-            Some(ufvk_string) => {
-                // The revision (R0 `uview` or R2 `uvf`) does not affect the derivation: `items()`
-                // returns the FVK data items only, in preference order, for either revision.
-                let (net, _revision, ufvk) =
-                    unified::Ufvk::decode(&ufvk_string).map_err(|e| anyhow!("{e}"))?;
-                let expected_net = network.network_type();
-                if net != expected_net {
-                    return Err(anyhow!(
-                        "UFVK is for network {:?} but we expected {:?}",
-                        net,
-                        expected_net,
-                    ));
-                }
-
-                // Any metadata should always be associated with the key derived from the
-                // most preferred FVK item. However, we don't know which FVK items the
-                // UFVK contained the last time we were asked to derive keys. So we derive
-                // every key and return them to the caller in preference order. If the
-                // caller finds data associated with an older FVK item, they will migrate
-                // it to the first key we return.
-                ufvk.items()
-                    .into_iter()
-                    .map(|fvk_item| {
-                        account_metadata_key
-                            .derive_child_with_tag(ChildIndex::hardened(1), &[])
-                            .derive_child_with_tag(
-                                ChildIndex::hardened(0),
-                                &fvk_item.typed_encoding(),
-                            )
-                            .derive_child_with_tag(ChildIndex::PRIVATE_USE, &private_use_subject)
-                    })
-                    .collect()
-            }
-        };
+        let private_use_keys = private_use_metadata_keys(
+            &account_metadata_key,
+            ufvk_string.as_deref(),
+            network.network_type(),
+            &private_use_subject,
+        )?;
 
         Ok(
             utils::rust_vec_to_java(env, private_use_keys, "[B", |env, key| {
@@ -4037,6 +4063,53 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustBackend_proposeOr
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ZIP 325 metadata keys must stay byte-identical to SDK 3.0.0, or apps can no longer decrypt
+    /// the metadata they stored under them. The account's UFVK reaches
+    /// `derivePrivateUseMetadataKey` as Revision 0 (what this build returns) or, from data written
+    /// by another SDK, Revision 2; both must give the same keys.
+    #[test]
+    fn metadata_keys_match_sdk_3_0_0() {
+        use crate::test_vectors::{SUBJECT, digest, expected, seed};
+        for (tag, network) in [
+            ("main", Network::MainNetwork),
+            ("test", Network::TestNetwork),
+        ] {
+            for name in ["Alice", "Ben"] {
+                let seed = seed(name);
+                let account = zip32::AccountId::ZERO;
+                let ak = account_metadata_key(&seed, network.coin_type(), account).unwrap();
+                assert_eq!(digest(ak.data()), expected(name, tag, "mk_account_sk"));
+                assert_eq!(
+                    digest(ak.chain_code().as_bytes()),
+                    expected(name, tag, "mk_account_c")
+                );
+
+                let inherent =
+                    private_use_metadata_keys(&ak, None, network.network_type(), SUBJECT).unwrap();
+                assert_eq!(inherent.len(), 1);
+                assert_eq!(
+                    digest(inherent[0].data()),
+                    expected(name, tag, "mk_inherent")
+                );
+
+                let ufvk = UnifiedSpendingKey::from_seed(&network, &seed, account)
+                    .unwrap()
+                    .to_unified_full_viewing_key();
+                for ufvk_string in [r0::encode_ufvk(&ufvk, &network), ufvk.encode(&network)] {
+                    let keys = private_use_metadata_keys(
+                        &ak,
+                        Some(&ufvk_string),
+                        network.network_type(),
+                        SUBJECT,
+                    )
+                    .unwrap();
+                    let digests: Vec<String> = keys.iter().map(|k| digest(k.data())).collect();
+                    assert_eq!(digests.join(","), expected(name, tag, "mk_external"));
+                }
+            }
+        }
+    }
 
     #[test]
     fn map_import_account_error_tags_checkpoint_parity_failures() {

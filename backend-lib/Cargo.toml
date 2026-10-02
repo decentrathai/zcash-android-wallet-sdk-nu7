@@ -162,6 +162,9 @@ ur-registry = { git = "https://github.com/KeystoneHQ/keystone-sdk-rust", package
 # (Kotlin does the mnemonic-to-seed conversion, Rust always receives already-derived seed bytes).
 bip0039 = "0.12"
 
+# Test-only: digests of the SDK 3.0.0 address and viewing-key strings that `r0` reproduces.
+sha2 = "0.10"
+
 # Test-only: pulls in `zcash_client_sqlite::testing` (`TestDb`/`TestDbFactory`/`BlockCache`) and,
 # through it, `zcash_client_backend::data_api::testing::TestBuilder` — a synthetic, self-contained
 # wallet DB with real chain/checkpoint history, no fixture file required. Used by
