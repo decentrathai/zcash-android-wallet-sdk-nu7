@@ -41,7 +41,6 @@ use jni::{
     },
 };
 use prost::Message;
-use rand::rngs::OsRng;
 use rusqlite::Connection;
 use std::ptr;
 
@@ -71,6 +70,7 @@ use zcash_pool_migration::{
 };
 
 use crate::migration_engine::{Backend, EngineError};
+use crate::rng::OsRng;
 use crate::utils::{catch_unwind, exception::unwrap_exc_or};
 
 const JNI_MIGRATION_PROGRESS: &str =
@@ -1076,7 +1076,7 @@ fn try_prove(
     // Scoped so the prover's mutable borrow of the wallet ends before the store below takes a
     // shared one.
     let result = {
-        let mut prover = WalletMigrationProver::new(wallet, account, fvk);
+        let mut prover = WalletMigrationProver::new(wallet, OsRng, account, fvk);
         match anchor {
             None => engine::prove_transfer(&params, &mut prover, state, id, scanned_tip, &mut rng),
             Some(anchor) => engine::prove_preparation(&mut prover, state, id, anchor),
@@ -1206,7 +1206,7 @@ fn finalize_note_split(
     let extracted = pczt::roles::tx_extractor::TransactionExtractor::new(
         pczt::Pczt::parse(&bytes).map_err(|e| anyhow!("parse proven note-split pczt: {:?}", e))?,
     )
-    .extract()
+    .extract(OsRng)
     .map_err(|e| anyhow!("extract proven note-split tx: {:?}", e))?;
     let txid: [u8; 32] = *extracted.txid().as_ref();
     Ok((bytes, txid))
@@ -1313,7 +1313,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_MigrationRustBackend_
         let pczt =
             pczt::Pczt::parse(&pczt_bytes).map_err(|e| anyhow!("Error parsing PCZT: {:?}", e))?;
         let tx = pczt::roles::tx_extractor::TransactionExtractor::new(pczt)
-            .extract()
+            .extract(OsRng)
             .map_err(|e| anyhow!("Error extracting transaction: {:?}", e))?;
         let mut raw = Vec::new();
         tx.write(&mut raw)
@@ -1502,7 +1502,7 @@ fn read_reconciled(
 }
 
 /// Extracts the transaction id from one migration transaction's stored PCZT, exactly as
-/// `nextDueTransferNative` does (`TransactionExtractor::new(Pczt::parse(bytes)).extract()`). Every
+/// `nextDueTransferNative` does (`TransactionExtractor::new(Pczt::parse(bytes)).extract(rng)`). Every
 /// state carries its PCZT bytes (see `MigrationTransaction::pczt`'s doc), so this works for any
 /// transaction regardless of lifecycle state — the txid is deterministic from the (proven, for a
 /// `Proved`+ transaction) transaction. Returns `Ok(None)` if the PCZT can't be extracted yet
@@ -1511,7 +1511,7 @@ fn read_reconciled(
 fn pczt_txid(bytes: &[u8]) -> Option<[u8; 32]> {
     let parsed = pczt::Pczt::parse(bytes).ok()?;
     let extracted = pczt::roles::tx_extractor::TransactionExtractor::new(parsed)
-        .extract()
+        .extract(OsRng)
         .ok()?;
     Some(*extracted.txid().as_ref())
 }
@@ -2506,7 +2506,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_MigrationRustBackend_
                     pczt::Pczt::parse(bytes)
                         .map_err(|e| anyhow!("parse proven transfer pczt: {:?}", e))?,
                 )
-                .extract()
+                .extract(OsRng)
                 .map_err(|e| anyhow!("extract proven transfer tx: {:?}", e))?;
                 let txid: [u8; 32] = *extracted.txid().as_ref();
                 let txid_obj = crate::utils::rust_bytes_to_java(env, &txid)?;
@@ -4141,7 +4141,7 @@ mod live_wallet_signing_tests {
         let ask = orchard::keys::SpendAuthorizingKey::from(usk.orchard());
         let unsigned_pczt =
             pczt::Pczt::parse(&unsigned_split_bytes).expect("parse unsigned split pczt");
-        let signed_pczt = zcash_pool_migration::build::sign_pczt(unsigned_pczt, &ask)
+        let signed_pczt = zcash_pool_migration::build::sign_pczt(OsRng, unsigned_pczt, &ask)
             .expect("sign split pczt out-of-process");
         let signed_bytes = signed_pczt
             .serialize()
@@ -4163,7 +4163,7 @@ mod live_wallet_signing_tests {
         // `OrchardParse(MissingAnchor)` on the un-finalized bytes.
         let parsed = pczt::Pczt::parse(&proven_pczt).expect("parse proven split pczt");
         let tx = pczt::roles::tx_extractor::TransactionExtractor::new(parsed)
-            .extract()
+            .extract(OsRng)
             .expect("extract broadcast tx from finalized split pczt");
         assert_eq!(
             *tx.txid().as_ref(),

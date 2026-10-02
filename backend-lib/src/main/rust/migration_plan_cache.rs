@@ -25,10 +25,11 @@
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-use rand::RngCore;
-use rand::rngs::OsRng;
+use rand::Rng;
 use zcash_client_sqlite::AccountUuid;
 use zcash_pool_migration::engine::MigrationPlan;
+
+use crate::rng::OsRng;
 
 /// Opaque identifier of one cached [`MigrationPlan`]. Drawn fresh (randomly) for every plan, so a
 /// handle from an earlier proposal can never accidentally match a later one.

@@ -35,14 +35,14 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(zcash_voting)'] }
 # half the job. `cargo tree -e features | grep unstable-voting-circuits` should stay empty; if
 # it ever isn't, the circuits are back in the shipped library. Re-enabling voting means asking
 # for it again — see the shielded-voting block below.
-orchard = { version = "0.15" }
+orchard = { version = "0.16" }
 zcash_pool_migration = { version = "0.1.0", features = ["wallet"] }
 # `signer` is this branch's addition, for the Keystone batch-signing recipe below
 # (`pczt::roles::signer::batch`).
 pczt = { version = "0.9.0", features = ["prover", "orchard", "sapling", "signer"] }
-sapling = { package = "sapling-crypto", version = "0.7", default-features = false }
-transparent = { package = "zcash_transparent", version = "0.10", default-features = false }
-zcash_address = "0.13"
+sapling = { package = "sapling-crypto", version = "0.9", default-features = false }
+transparent = { package = "zcash_transparent", version = "0.11.0-pre.0", default-features = false }
+zcash_address = "0.14.0-pre.0"
 zcash_client_backend = { version = "0.24.0", features = [
     "orchard",
     "lightwalletd-tonic-tls-webpki-roots",
@@ -52,24 +52,24 @@ zcash_client_backend = { version = "0.24.0", features = [
     "pczt",
 ] }
 zcash_client_sqlite = { version = "0.22.0", features = ["orchard", "transparent-inputs", "unstable", "serde"] }
-zcash_note_encryption = "0.4.1"
-zcash_primitives = "0.30"
-zcash_proofs = "0.30"
-zcash_protocol = "0.10"
-zcash_script = "0.4"
-zip32 = "0.2"
+zcash_note_encryption = "0.5.1"
+zcash_primitives = "0.31.0-pre.0"
+zcash_proofs = "0.31.0-pre.0"
+zcash_protocol = "0.11.0-pre.0"
+zcash_script = "0.6"
+zip32 = "0.3"
 eip681 = "0.1.0"
 # Used by migration_finalize.rs to read `ShardTreeError`/`QueryError` variants when checking
 # note-witness availability at a migration transaction's anchor boundary.
-shardtree = "0.7"
+shardtree = "0.8"
 # Used by voting/notes.rs to construct historical Orchard witness positions.
-incrementalmerkletree = { version = "0.8", default-features = false }
+incrementalmerkletree = { version = "0.9", default-features = false }
 
 # Infrastructure
 prost = "0.14"
 rusqlite = "0.37"
 secrecy = "0.8"
-rand = "0.8"
+rand = "0.10"
 nonempty = "0.11"
 
 # HTTP
@@ -189,14 +189,14 @@ crate-type = ["staticlib", "cdylib"]
 # author and reviewer should have certainty that the revision *will end up
 # merged to `main`* so that commits in our history can always be successfully
 # built. 
-#pczt = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
-#zcash_address = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
-#zcash_client_backend = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
-#zcash_client_sqlite = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
-#zcash_keys = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
-#zcash_pool_migration = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
-#zcash_primitives = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
-#zcash_proofs = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
-#zcash_protocol = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
-#zcash_transparent = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
-#zip321 = { git = "https://github.com/zcash/librustzcash", rev = "REPLACE_ME" }
+pczt = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }
+zcash_address = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }
+zcash_client_backend = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }
+zcash_client_sqlite = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }
+zcash_keys = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }
+zcash_pool_migration = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }
+zcash_primitives = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }
+zcash_proofs = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }
+zcash_protocol = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }
+zcash_transparent = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }
+zip321 = { git = "https://github.com/zcash/librustzcash", rev = "8dfc254da0818208d7256fc1d2c77be75e177805" }

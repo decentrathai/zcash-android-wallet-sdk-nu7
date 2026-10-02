@@ -19,7 +19,6 @@ use rusqlite::Connection;
 use incrementalmerkletree::Position;
 use orchard::keys::{FullViewingKey, Scope};
 use orchard::note::Note as OrchardNote;
-use zcash_client_backend::address::Receiver;
 use zcash_client_backend::data_api::MaxSpendMode;
 use zcash_client_backend::data_api::wallet::TargetHeight;
 use zcash_client_backend::data_api::wallet::input_selection::{LockFilter, LockedInputPolicy};
@@ -367,7 +366,8 @@ pub fn propose_immediate_send_max(
         .ok_or_else(|| anyhow::anyhow!("account has no Orchard full viewing key"))?;
 
     let ironwood_receiver = orchard_fvk.address_at(0u32, Scope::Internal);
-    let recipient = Receiver::Orchard(ironwood_receiver).to_zcash_address(params.network_type());
+    // Revision 0, as SDK 3.0.0 encoded it (`Receiver::to_zcash_address` now yields Revision 2).
+    let recipient = crate::r0::orchard_only_address(params.network_type(), &ironwood_receiver);
 
     propose_send_max_transfer::<_, _, _, Infallible>(
         wallet,

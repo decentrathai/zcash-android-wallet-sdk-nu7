@@ -18,7 +18,6 @@ use jni::{
 };
 use nonempty::NonEmpty;
 use prost::Message;
-use rand::rngs::OsRng;
 use secrecy::{ExposeSecret, SecretVec};
 use tor_rtcompat::ToplevelBlockOn;
 use tracing::{debug, error};
@@ -102,6 +101,7 @@ use zip32::{
     ChainCode, ChildIndex, DiversifierIndex, fingerprint::SeedFingerprint, registered::PathElement,
 };
 
+use crate::rng::OsRng;
 use crate::utils::{
     catch_unwind, exception::unwrap_exc_or, java_nullable_string_to_rust, java_string_to_rust,
 };
@@ -112,6 +112,8 @@ mod migration_engine;
 mod migration_keystone;
 mod migration_plan_cache;
 mod migration_send_max;
+mod r0;
+mod rng;
 mod tor;
 mod utils;
 // Voting is disabled on this branch: the `zcash_voting` dependency these sources need is
@@ -431,7 +433,7 @@ fn encode_usk<'a>(
     account_uuid: AccountUuid,
     usk: UnifiedSpendingKey,
 ) -> jni::errors::Result<JObject<'a>> {
-    let encoded = SecretVec::new(usk.to_bytes(Era::Orchard));
+    let encoded = usk.to_bytes(Era::Orchard);
     let bytes = env.byte_array_from_slice(encoded.expose_secret())?;
     env.new_object(
         "cash/z/ecc/android/sdk/internal/model/JniAccountUsk",
@@ -2470,6 +2472,8 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustBackend_createPro
         let txids = create_proposed_transactions::<_, _, Infallible, _, Infallible, _>(
             &mut db_data,
             &network,
+            &SystemClock,
+            &mut OsRng,
             &prover,
             &prover,
             &wallet::SpendingKeys::from_unified_spending_key(usk),
@@ -2520,6 +2524,8 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustBackend_createPcz
             let pczt = create_pczt_from_proposal::<_, _, Infallible, _, Infallible, _>(
                 &mut db_data,
                 &network,
+                &SystemClock,
+                &mut OsRng,
                 account_id,
                 OvkPolicy::Sender,
                 &proposal,
@@ -2649,7 +2655,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustBackend_addProofs
             // version: building a proving key is expensive, and this entry point runs on
             // every ordinary shielded send, not only on migrations.
             prover = prover
-                .create_orchard_proof(cached_orchard_proving_key(circuit_version))
+                .create_orchard_proof(OsRng, cached_orchard_proving_key(circuit_version))
                 .map_err(|e| anyhow!("Failed to create Orchard proof for PCZT: {:?}", e))?;
         }
         assert!(!prover.requires_orchard_proof());
@@ -2659,7 +2665,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustBackend_addProofs
                 anyhow!("PCZT requires an Ironwood proof but its consensus branch does not support Ironwood")
             })?;
             prover = prover
-                .create_ironwood_proof(cached_orchard_proving_key(circuit_version))
+                .create_ironwood_proof(OsRng, cached_orchard_proving_key(circuit_version))
                 .map_err(|e| anyhow!("Failed to create Ironwood proof for PCZT: {:?}", e))?;
         }
         assert!(!prover.requires_ironwood_proof());
@@ -2670,7 +2676,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustBackend_addProofs
             let local_prover = LocalTxProver::new(&spend_params, &output_params);
 
             prover = prover
-                .create_sapling_proofs(&local_prover, &local_prover)
+                .create_sapling_proofs(OsRng, &local_prover, &local_prover)
                 .map_err(|e| anyhow!("Failed to create Sapling proofs for PCZT: {:?}", e))?;
         }
         assert!(!prover.requires_sapling_proofs());
@@ -2727,6 +2733,8 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustBackend_extractAn
 
         let txid = extract_and_store_transaction_from_pczt::<_, ()>(
             &mut db_data,
+            &SystemClock,
+            &mut OsRng,
             pczt,
             Some((&spend_vk, &output_vk)),
             Some(&orchard::circuit::VerifyingKey::build(
@@ -2789,7 +2797,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_de
         let usk = UnifiedSpendingKey::from_seed(&network, seed.expose_secret(), account)
             .map_err(|e| anyhow!("error generating unified spending key from seed: {:?}", e))?;
 
-        let encoded = SecretVec::new(usk.to_bytes(Era::Orchard));
+        let encoded = usk.to_bytes(Era::Orchard);
         Ok(utils::rust_bytes_to_java(env, encoded.expose_secret())?.into_raw())
     });
     unwrap_exc_or(&mut env, res, ptr::null_mut())
@@ -3018,7 +3026,9 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_de
             ],
             // For the external subtree, we derive keys from the UFVK's items.
             Some(ufvk_string) => {
-                let (net, ufvk) =
+                // The revision (R0 `uview` or R2 `uvf`) does not affect the derivation: `items()`
+                // returns the FVK data items only, in preference order, for either revision.
+                let (net, _revision, ufvk) =
                     unified::Ufvk::decode(&ufvk_string).map_err(|e| anyhow!("{e}"))?;
                 let expected_net = network.network_type();
                 if net != expected_net {
@@ -3396,7 +3406,7 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_model_TorClient_getExchan
         let rate = tor_runtime.runtime().block_on(async {
             tor_runtime
                 .client()
-                .get_latest_zec_to_usd_rate(&exchanges)
+                .get_latest_zec_to_usd_rate(&mut OsRng, &exchanges)
                 .await
         })?;
 
