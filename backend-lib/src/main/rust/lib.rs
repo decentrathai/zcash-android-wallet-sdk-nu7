@@ -4064,6 +4064,33 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustBackend_proposeOr
 mod tests {
     use super::*;
 
+    /// What `branchIdForHeight` reports around NU7, for the network ids Kotlin passes. Testnet
+    /// activates NU7 at 4,465,026 (ZIP 259); mainnet has no NU7 height in this librustzcash pin
+    /// (it is set on 20 Oct 2026), so this test must change when the pin moves to one that has it.
+    #[test]
+    fn branch_ids_around_nu7() {
+        use zcash_protocol::consensus::NetworkUpgrade;
+
+        const NU6_3: u32 = 0x37a5_165b;
+        const NU7: u32 = 0x7719_0ad9;
+        let branch = |network_id: u32, height: u32| {
+            u32::from(BranchId::for_height(
+                &parse_network(network_id).unwrap(),
+                BlockHeight::from(height),
+            ))
+        };
+        assert_eq!(branch(0, 4_465_025), NU6_3);
+        assert_eq!(branch(0, 4_465_026), NU7);
+        assert_eq!(branch(0, 5_000_000), NU7);
+        assert_eq!(branch(1, 4_000_000), NU6_3);
+        assert_eq!(branch(1, 10_000_000), NU6_3);
+        assert_eq!(
+            TestNetwork.activation_height(NetworkUpgrade::Nu7),
+            Some(BlockHeight::from(4_465_026))
+        );
+        assert_eq!(MainNetwork.activation_height(NetworkUpgrade::Nu7), None);
+    }
+
     /// ZIP 325 metadata keys must stay byte-identical to SDK 3.0.0, or apps can no longer decrypt
     /// the metadata they stored under them. The account's UFVK reaches
     /// `derivePrivateUseMetadataKey` as Revision 0 (what this build returns) or, from data written
