@@ -14,10 +14,11 @@ are the official 3.0.0 AARs, republished under the new version. Apps change only
 - **NU7**: consensus branch `0x77190ad9`; testnet activation at height 4,465,026 (ZIP 259). Mainnet has no NU7
   height in this pin; it is set on 20 Oct 2026, and the library must be rebuilt from a pin that carries it before it
   can follow mainnet.
-- **librustzcash**: the wallet crates come from commit `8dfc254da0818208d7256fc1d2c77be75e177805` (the tree of tag
-  `zcash_keys-0.17.0-pre.0`) through `[patch.crates-io]`, because they had no crates.io pre-release on 2 Oct 2026.
-  This brings unreleased wallet changes besides NU7, including three new one-way wallet-database migrations and
-  transparent output and spend detection during block scanning.
+- **librustzcash**: the published NU7 pre-releases from crates.io: zcash_client_backend 0.25.0-pre.0,
+  zcash_client_sqlite 0.23.0-pre.0, pczt 0.10.0-pre.0, zip321 0.10.0-pre.0, zcash_pool_migration 0.2.0-pre.0,
+  zcash_keys 0.17.0-pre.0, zcash_primitives and zcash_proofs 0.31.0-pre.0, zcash_protocol and zcash_transparent
+  0.11.0-pre.0, zcash_address 0.14.0-pre.0. They bring wallet changes besides NU7, including three new one-way
+  wallet-database migrations and transparent output and spend detection during block scanning.
 - **Address strings**: the SDK keeps returning ZIP 316 Revision 0 Unified Addresses and viewing keys (`u1…`,
   `uview1…`, `uivk1…`; `utest1…` etc. on testnet), as 3.0.0 did, although `zcash_keys 0.17` produces Revision 2
   (`zu…`, `uvf…`, `uvi…`). Known gap: strings that the wallet database itself stores for addresses created after the
