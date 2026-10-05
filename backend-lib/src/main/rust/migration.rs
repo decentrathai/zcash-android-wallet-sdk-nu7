@@ -3945,8 +3945,8 @@ mod live_wallet_signing_tests {
             .expect("account exists");
         let wallet_ufvk = wallet_account.ufvk().expect("account has a UFVK");
         assert_eq!(
-            derived_ufvk.encode(&network),
-            wallet_ufvk.encode(&network),
+            crate::r0::encode_ufvk(&derived_ufvk, &network),
+            crate::r0::encode_ufvk(wallet_ufvk, &network),
             "derived USK's UFVK doesn't match the wallet's stored UFVK for this account — check \
              the seed phrase and/or account index (this test assumes account 0)"
         );

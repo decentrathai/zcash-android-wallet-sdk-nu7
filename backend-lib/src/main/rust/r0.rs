@@ -10,6 +10,11 @@
 //! revision. A container that carries metadata (such as an expiry height) or that ZIP 316 does
 //! not allow in Revision 0 (for example a transparent-only address) has no Revision 0 form and is
 //! returned in its Revision 2 encoding unchanged.
+//!
+//! `clippy.toml` disallows the upstream Revision 2 encoders everywhere else in this crate; this
+//! module is the one place that calls them.
+
+#![allow(clippy::disallowed_methods)]
 
 use zcash_address::{
     ToAddress, ZcashAddress,
@@ -70,6 +75,18 @@ pub(crate) fn encode_uivk<P: Parameters>(uivk: &UnifiedIncomingViewingKey, param
     to_r0::<unified::Uivk>(uivk.encode(params))
 }
 
+/// The Revision 0 form of a Unified Address, UFVK or UIVK string; any other string (a
+/// transparent, Sapling or TEX address, one that is already Revision 0, or one with no Revision 0
+/// form) is returned unchanged.
+///
+/// This is the conversion for address strings read back from the wallet database:
+/// `zcash_client_sqlite` stores the addresses it hands out in their receiver-preserving Revision 2
+/// form (`tu…` with a transparent receiver, `zu…` without), while rows written by SDK 3.0.0 are
+/// Revision 0. Stored rows are never rewritten; only the string handed to the app is converted.
+pub(crate) fn to_revision_0(encoded: String) -> String {
+    to_r0::<unified::Uivk>(to_r0::<unified::Ufvk>(to_r0::<unified::Address>(encoded)))
+}
+
 /// The Revision 0 Unified Address holding only the given Orchard receiver, as SDK 3.0.0
 /// built it for the account's own internal migration destination.
 pub(crate) fn orchard_only_address(net: NetworkType, receiver: &orchard::Address) -> ZcashAddress {
@@ -95,7 +112,7 @@ mod tests {
     };
     use zcash_protocol::consensus::{BlockHeight, Network, NetworkType, Parameters};
 
-    use super::{encode_ua, encode_ufvk, encode_uivk, orchard_only_address, to_r0};
+    use super::{encode_ua, encode_ufvk, encode_uivk, orchard_only_address, to_r0, to_revision_0};
     use crate::test_vectors::{digest, expected, seed};
 
     fn ufvk_for(name: &str, network: &Network) -> UnifiedFullViewingKey {
@@ -231,6 +248,178 @@ mod tests {
                 .iter()
                 .any(|i| matches!(i, Uitem::Metadata(_))),
             "expiry metadata must survive"
+        );
+    }
+
+    /// What the wallet database stores for these keys and addresses (Revision 2) reads back as
+    /// the string SDK 3.0.0 returned.
+    #[test]
+    fn stored_revision_2_strings_convert_to_sdk_3_0_0_strings() {
+        let sapling_orchard = UnifiedAddressRequest::custom(Require, Require, Omit).unwrap();
+        for name in ["Alice", "Ben"] {
+            for tag in ["main", "test"] {
+                let network = network(tag);
+                let ufvk = ufvk_for(name, &network);
+                let all = first_address(&ufvk, UnifiedAddressRequest::AllAvailableKeys);
+                let shielded = first_address(&ufvk, sapling_orchard);
+                let uivk = ufvk.to_unified_incoming_viewing_key();
+                for (kind, stored) in [
+                    // `tu…`: the stored form of an address with a transparent receiver.
+                    ("ua_all", all.encode_receiver_preserving(&network)),
+                    // `zu…`: the stored form of a shielded-only address.
+                    (
+                        "ua_sapling_orchard",
+                        shielded.encode_receiver_preserving(&network),
+                    ),
+                    ("ufvk", ufvk.encode(&network)),
+                    ("uivk", uivk.encode(&network)),
+                ] {
+                    let (_, revision, _) = match kind {
+                        "ufvk" => unified::Ufvk::decode(&stored).map(|(n, r, _)| (n, r, ())),
+                        "uivk" => unified::Uivk::decode(&stored).map(|(n, r, _)| (n, r, ())),
+                        _ => unified::Address::decode(&stored).map(|(n, r, _)| (n, r, ())),
+                    }
+                    .expect("stored string decodes");
+                    assert_eq!(revision, Revision::R2, "{name} {tag} {kind}: premise");
+                    let read_back = to_revision_0(stored);
+                    assert_eq!(
+                        digest(read_back.as_bytes()),
+                        expected(name, tag, kind),
+                        "{name} {tag} {kind} differs from SDK 3.0.0"
+                    );
+                    // Converting twice changes nothing: Revision 0 rows read back as they are.
+                    assert!(to_revision_0(read_back.clone()) == read_back);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn other_strings_are_returned_unchanged() {
+        let network = Network::MainNetwork;
+        let ufvk = ufvk_for("Alice", &network);
+        let ua = first_address(&ufvk, UnifiedAddressRequest::AllAvailableKeys);
+        let transparent = zcash_client_backend::encoding::AddressCodec::encode(
+            ua.transparent().expect("transparent receiver"),
+            &network,
+        );
+        let sapling =
+            zcash_client_backend::address::Address::from(*ua.sapling().expect("Sapling receiver"))
+                .encode(&network);
+        for other in [
+            transparent.as_str(),
+            sapling.as_str(),
+            "",
+            "not an address",
+            "zu1",
+            "tu1qqqq",
+        ] {
+            assert!(
+                to_revision_0(other.to_owned()) == other,
+                "a non-unified string changed"
+            );
+        }
+    }
+
+    /// A wallet database holding both kinds of rows: addresses handed out by this build (stored
+    /// as Revision 2) and the same rows as SDK 3.0.0 left them (Revision 0). Both must read back
+    /// as the one string the SDK returns for that address, including through
+    /// `v_tx_outputs.to_address`, the column the Kotlin layer reads.
+    #[test]
+    fn mixed_database_reads_back_one_string_per_address() {
+        use zcash_client_backend::data_api::testing::{AddressType, TestBuilder};
+        use zcash_client_backend::data_api::{Account as _, WalletRead, WalletWrite};
+        use zcash_client_sqlite::testing::{BlockCache, db::TestDbFactory};
+        use zcash_primitives::block::BlockHash;
+        use zcash_protocol::value::Zatoshis;
+
+        let mut st = TestBuilder::new()
+            .with_data_store_factory(TestDbFactory::default())
+            .with_block_cache(BlockCache::new())
+            .with_account_from_sapling_activation(BlockHash([0; 32]))
+            .build();
+        let network = *st.network();
+        let account = st.test_account().expect("test account").id();
+        // The wallet hands out addresses only once it knows the chain height.
+        let (first_height, _) = st.generate_empty_block();
+        st.scan_cached_blocks(first_height, 1);
+        let rows_equal_to = |conn: &rusqlite::Connection, value: &str| -> Vec<String> {
+            let mut stmt = conn
+                .prepare("SELECT address FROM addresses WHERE address = ?1")
+                .unwrap();
+            stmt.query_map([value], |row| row.get(0))
+                .unwrap()
+                .collect::<Result<_, _>>()
+                .unwrap()
+        };
+
+        // The account's default address, before any other address is handed out.
+        let default_address = st
+            .wallet()
+            .get_last_generated_address_matching(account, UnifiedAddressRequest::AllAvailableKeys)
+            .unwrap()
+            .expect("default address");
+
+        // Hand out addresses as `getNextAvailableAddress` does: Sapling+Orchard (receiver flags
+        // 12) and one with every receiver.
+        let sapling_orchard = UnifiedAddressRequest::custom(Require, Require, Omit).unwrap();
+        for request in [sapling_orchard, UnifiedAddressRequest::AllAvailableKeys] {
+            let (ua, _) = st
+                .wallet_mut()
+                .get_next_available_address(account, request)
+                .unwrap()
+                .expect("an address is available");
+            let returned = encode_ua(&ua, &network);
+            let stored = ua.encode_receiver_preserving(&network);
+            assert!(stored != returned, "premise: this build stores Revision 2");
+            assert_eq!(
+                rows_equal_to(st.wallet().conn(), &stored),
+                vec![stored.clone()]
+            );
+            assert!(to_revision_0(stored.clone()) == returned, "Revision 2 row");
+
+            // The same row as SDK 3.0.0 wrote it.
+            let updated = st
+                .wallet_mut()
+                .conn_mut()
+                .execute(
+                    "UPDATE addresses SET address = ?1 WHERE address = ?2",
+                    [&returned, &stored],
+                )
+                .unwrap();
+            assert_eq!(updated, 1);
+            let rows = rows_equal_to(st.wallet().conn(), &returned);
+            assert_eq!(rows.len(), 1);
+            assert!(to_revision_0(rows[0].clone()) == returned, "Revision 0 row");
+        }
+
+        // A note received at the account's default address, read through the view.
+        let dfvk = st.test_account_sapling().expect("Sapling key").clone();
+        let (height, _, _) = st.generate_next_block(
+            &dfvk,
+            AddressType::DefaultExternal,
+            Zatoshis::const_from_u64(50_000),
+        );
+        st.scan_cached_blocks(height, 1);
+        let to_addresses: Vec<String> = {
+            let mut stmt = st
+                .wallet()
+                .conn()
+                .prepare("SELECT to_address FROM v_tx_outputs WHERE to_address IS NOT NULL")
+                .unwrap();
+            stmt.query_map([], |row| row.get(0))
+                .unwrap()
+                .collect::<Result<_, _>>()
+                .unwrap()
+        };
+        assert_eq!(
+            to_addresses.len(),
+            1,
+            "the received output names its address"
+        );
+        assert!(
+            to_revision_0(to_addresses[0].clone()) == encode_ua(&default_address, &network),
+            "v_tx_outputs.to_address reads back as the address the SDK returns"
         );
     }
 

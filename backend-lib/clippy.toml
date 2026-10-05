@@ -1,0 +1,14 @@
+# ZIP 316 Revision 0 policy (see src/main/rust/r0.rs): `zcash_keys 0.17` encodes unified addresses and viewing keys as
+# Revision 2. Every such string handed to Kotlin must go through `r0`, so the upstream encoders are disallowed in this
+# crate; `r0.rs` and tests that state the premise carry an explicit `#[allow]`.
+disallowed-methods = [
+    { path = "zcash_keys::address::UnifiedAddress::encode", reason = "encodes ZIP 316 Revision 2; use crate::r0::encode_ua" },
+    { path = "zcash_keys::address::UnifiedAddress::encode_receiver_preserving", reason = "encodes ZIP 316 Revision 2; use crate::r0::encode_ua" },
+    { path = "zcash_keys::address::UnifiedAddress::encode_transparent_including", reason = "encodes ZIP 316 Revision 2; use crate::r0::encode_ua" },
+    { path = "zcash_keys::address::UnifiedAddress::to_zcash_address", reason = "builds a ZIP 316 Revision 2 address; use crate::r0" },
+    { path = "zcash_keys::address::Address::encode", reason = "encodes a unified address as ZIP 316 Revision 2; use crate::r0::encode_ua or the receiver's own encoder" },
+    { path = "zcash_keys::address::Address::encode_receiver_preserving", reason = "encodes a unified address as ZIP 316 Revision 2; use crate::r0::encode_ua" },
+    { path = "zcash_keys::address::Receiver::to_zcash_address", reason = "builds a ZIP 316 Revision 2 address; use crate::r0::orchard_only_address" },
+    { path = "zcash_keys::keys::UnifiedFullViewingKey::encode", reason = "encodes ZIP 316 Revision 2; use crate::r0::encode_ufvk" },
+    { path = "zcash_keys::keys::UnifiedIncomingViewingKey::encode", reason = "encodes ZIP 316 Revision 2; use crate::r0::encode_uivk" },
+]

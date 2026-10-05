@@ -11,7 +11,8 @@ import kotlinx.coroutines.flow.Flow
 import java.util.Locale
 
 internal class TxOutputsView(
-    private val sqliteDatabase: SupportSQLiteDatabase
+    private val sqliteDatabase: SupportSQLiteDatabase,
+    private val storedAddresses: StoredAddressNormalizer = StoredAddressNormalizer()
 ) {
     companion object {
         private val ORDER_BY =
@@ -171,7 +172,8 @@ internal class TxOutputsView(
         val toAddressIndex = getColumnIndex(TxOutputsViewDefinition.COLUMN_STRING_TO_ADDRESS)
 
         return TransactionRecipient(
-            addressValue = if (!isNull(toAddressIndex)) getString(toAddressIndex) else null,
+            addressValue =
+                if (!isNull(toAddressIndex)) storedAddresses.normalize(getString(toAddressIndex)) else null,
             accountUuid = if (!isNull(toAccountIndex)) AccountUuid(getBlob(toAccountIndex)) else null
         )
     }

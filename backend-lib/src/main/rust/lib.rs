@@ -3096,6 +3096,27 @@ pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_de
     unwrap_exc_or(&mut env, res, ptr::null_mut())
 }
 
+/// Returns the ZIP 316 Revision 0 form of a Unified Address, UFVK or UIVK string, or the string
+/// unchanged if it is anything else.
+///
+/// The Kotlin layer passes address strings it reads from the wallet database through this, so
+/// that it returns the same string for an address whether the row was written by SDK 3.0.0
+/// (Revision 0) or by this build (Revision 2).
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustUnifiedEncoding_toRevision0<
+    'local,
+>(
+    mut env: JNIEnv<'local>,
+    _: JClass<'local>,
+    encoded: JString<'local>,
+) -> jstring {
+    let res = catch_unwind(&mut env, |env| {
+        let encoded = java_string_to_rust(env, &encoded)?;
+        Ok(env.new_string(r0::to_revision_0(encoded))?.into_raw())
+    });
+    unwrap_exc_or(&mut env, res, ptr::null_mut())
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn Java_cash_z_ecc_android_sdk_internal_jni_RustDerivationTool_deriveArbitraryWalletKeyFromSeed<
     'local,
@@ -4096,6 +4117,8 @@ mod tests {
     /// `derivePrivateUseMetadataKey` as Revision 0 (what this build returns) or, from data written
     /// by another SDK, Revision 2; both must give the same keys.
     #[test]
+    // The Revision 2 UFVK string is an input here: other SDKs store and pass that form.
+    #[allow(clippy::disallowed_methods)]
     fn metadata_keys_match_sdk_3_0_0() {
         use crate::test_vectors::{SUBJECT, digest, expected, seed};
         for (tag, network) in [
