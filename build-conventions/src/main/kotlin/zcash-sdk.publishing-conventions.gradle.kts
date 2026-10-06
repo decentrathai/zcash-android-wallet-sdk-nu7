@@ -12,13 +12,18 @@ val myVersion = project.property("LIBRARY_VERSION").toString()
 val myGroup = "cash.z.ecc.android"
 project.group = myGroup
 
+// The javadoc jar is published unless -PZCASH_PUBLISH_JAVADOC_JAR=false is given. A build whose files must be
+// reproducible (nu7-zchat/build_aar.sh) leaves it out: Dokka writes the sections of deprecated.html in an order
+// that changes from run to run, and the module metadata records the hashes of that jar.
+val isJavadocJarPublished = project.findProperty("ZCASH_PUBLISH_JAVADOC_JAR")?.toString()?.toBoolean() ?: true
+
 plugins.apply(MavenPublishPlugin::class.java)
 extensions.getByType<MavenPublishBaseExtension>().apply {
     configure(
         AndroidSingleVariantLibrary(
             variant = "release",
             sourcesJar = true,
-            publishJavadocJar = true
+            publishJavadocJar = isJavadocJarPublished
         )
     )
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
