@@ -100,6 +100,11 @@ and the version `3.0.0-nu7-zchat.2` for `cash.z.ecc.android:zcash-android-sdk` a
 the same group, on Maven Central. The `.module` files offer the API, runtime and sources variants. Checked with an
 Android library project: both classpaths resolve from the directory and a file that uses the API compiles.
 
+Gradle orders `3.0.0-nu7-zchat.2` **below** `3.0.0`. If anything else in the build asks for the official 3.0.0 of
+one of these libraries, Gradle selects 3.0.0 for it and for the libraries it depends on, without a warning (checked).
+So check the resolved versions (`./gradlew :app:dependencies`), or run `verify_so.sh` on the
+`libzcashwalletsdk.so` of the built APK.
+
 ### Memory
 
 `build_aar.sh` gives the Gradle JVM `-Xmx3g -XX:MaxMetaspaceSize=1g` on the command line, the values of this
