@@ -1,19 +1,20 @@
 # NU7 build of the Zcash Android SDK 3.0.0 (ZChat)
 
 This branch (`nu7-zchat`) is the [Zcash Android wallet SDK](https://github.com/zcash/zcash-android-wallet-sdk)
-v3.0.0 (MIT) with its native library rebuilt against the NU7 pre-release of librustzcash. It is built and used by
-ZChat. It is **not** an Electric Coin Co. or ZODL release; if the official SDK ships NU7 support in time, ZChat
-moves to it.
+v3.0.0 (MIT) with its native library rebuilt against the NU7 pre-release of librustzcash and one small Kotlin change
+that goes with it. It is built and used by ZChat. It is **not** an Electric Coin Co. or ZODL release; if the official
+SDK ships NU7 support in time, ZChat moves to it.
 
-The Kotlin layer is unchanged: the published artifact `zcash-android-backend` is the official 3.0.0 AAR with its four
-`libzcashwalletsdk.so` files replaced, and `zcash-android-sdk`, `zcash-android-sdk-incubator` and `lightwallet-client`
-are the official 3.0.0 AARs, republished under the new version. Apps change only the SDK version.
+Version `3.0.0-nu7-zchat.2` is built from this branch: `zcash-android-backend`, `zcash-android-sdk`,
+`zcash-android-sdk-incubator` and `lightwallet-client`, each as `.aar`, `.pom`, `.module` and `-sources.jar`. An app
+changes the SDK version and adds the repository that holds these files; no app code changes. (Version `.1` was the
+official 3.0.0 AARs with only the native libraries replaced; `package_aar.py` built it and stays here for that.)
 
 ## What changes compared with 3.0.0
 
 - **NU7**: consensus branch `0x77190ad9`; testnet activation at height 4,465,026 (ZIP 259). Mainnet has no NU7
-  height in this pin; it is set on 20 Oct 2026, and the library must be rebuilt from a pin that carries it before it
-  can follow mainnet.
+  height in these crates; it is set on 20 Oct 2026, and the library must be rebuilt from crates that carry it before
+  it can follow mainnet.
 - **librustzcash**: the published NU7 pre-releases from crates.io: zcash_client_backend 0.25.0-pre.0,
   zcash_client_sqlite 0.23.0-pre.0, pczt 0.10.0-pre.0, zip321 0.10.0-pre.0, zcash_pool_migration 0.2.0-pre.0,
   zcash_keys 0.17.0-pre.0, zcash_primitives and zcash_proofs 0.31.0-pre.0, zcash_protocol and zcash_transparent
@@ -21,42 +22,106 @@ are the official 3.0.0 AARs, republished under the new version. Apps change only
   wallet-database migrations and transparent output and spend detection during block scanning.
 - **Address strings**: the SDK keeps returning ZIP 316 Revision 0 Unified Addresses and viewing keys (`u1…`,
   `uview1…`, `uivk1…`; `utest1…` etc. on testnet), as 3.0.0 did, although `zcash_keys 0.17` produces Revision 2
-  (`zu…`, `uvf…`, `uvi…`). Known gap: strings that the wallet database itself stores for addresses created after the
-  upgrade are Revision 2 and are visible through `v_tx_outputs.to_address`.
-- Unchanged: the Kotlin API, JNI function names, `DEFAULT_TX_EXPIRY_DELTA` (40), ZIP 325 metadata keys.
-
-Commits: `backend-lib: build against the NU7 pre-release librustzcash cohort`, `backend-lib: keep returning ZIP 316
-Revision 0 addresses and viewing keys`, `backend-lib: test the branch ids reported around NU7`.
+  (`zu…`, `tu…`, `uvf…`, `uvi…`). That includes the strings the wallet database stores: addresses created by this
+  build are stored in Revision 2, and `Synchronizer.getRecipients` and `getTransactionOutputs` return them in
+  Revision 0. Stored rows are never rewritten. The crates decode both forms (tested for addresses and viewing keys).
+- **Kotlin layer**: three source files differ from 3.0.0.
+  - `backend-lib`: new `cash.z.ecc.android.sdk.internal.jni.RustUnifiedEncoding` with one JNI function,
+    `toRevision0(String): String`. It needs the native library to be loaded, like every other JNI call.
+  - `sdk-lib`: new internal `StoredAddressNormalizer` (the 512 most recently used strings are cached in front of
+    that function); `TxOutputsView` passes `v_tx_outputs.to_address` through it.
+  - The version is part of `BuildConfig.LIBRARY_VERSION` and of the Kotlin module name of `zcash-android-sdk`. So
+    the SDK's wallet check that runs once per SDK version (`fixWitnesses`) runs once after an app switches to this
+    build, and the JVM names of Kotlin `internal` members end in `$zcash_android_sdk_3_0_0_nu7_zchat_2_release`.
+- **Compared with the official 3.0.0 AARs**, file by file: `lightwallet-client` and `zcash-android-sdk-incubator`
+  are byte-identical to them. In `zcash-android-backend` the 421 files of `classes.jar` are byte-identical, and
+  `RustUnifiedEncoding.class` and the four rebuilt libraries are new. In `zcash-android-sdk` the public and
+  protected API (`javap` over every class) differs only by the internal classes named above.
+- **Build files**: publications are signed only when a signing key is configured, and a build can leave the javadoc
+  jar out (`-PZCASH_PUBLISH_JAVADOC_JAR=false`).
+- Unchanged: the public Kotlin API, the JNI functions of 3.0.0 (the libraries export those 121 and `toRevision0`),
+  `DEFAULT_TX_EXPIRY_DELTA` (40), ZIP 325 metadata keys.
 
 ## Rebuild
 
-Needs Linux x86_64, rustup, Android NDK 27.0.12077973 (`ANDROID_NDK_HOME`, or `ANDROID_HOME` with `ndk/27.0.12077973`),
-Python 3 and network access to crates.io, GitHub and Maven Central.
+Needs Linux x86_64, rustup, JDK 17, the Android SDK with NDK 27.0.12077973 (`ANDROID_HOME`), Python 3 and network
+access to crates.io, GitHub, Google's Maven repository and Maven Central. Build from a clean checkout of the commit
+(`build-info.txt` and `BUILD-INFO-<version>.txt` then say `dirty=no`).
 
 ```bash
 rustup toolchain install 1.92.0
-rustup target add --toolchain 1.92.0 aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-for abi in arm64-v8a armeabi-v7a x86 x86_64; do nu7-zchat/build_so.sh "$abi"; nu7-zchat/verify_so.sh "nu7-zchat/out/$abi/libzcashwalletsdk.so"; done
-nu7-zchat/package_aar.py --version 3.0.0-nu7-zchat.1 --repo /path/to/maven-repo
+rustup target add --toolchain 1.92.0 \
+  aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+export ANDROID_HOME=/path/to/android-sdk
+for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+  nu7-zchat/build_so.sh "$abi"
+  nu7-zchat/verify_so.sh "nu7-zchat/out/$abi/libzcashwalletsdk.so"
+done
+nu7-zchat/build_aar.sh 3.0.0-nu7-zchat.2 /path/to/maven-repo nu7-zchat/out
 ```
 
 - `build_so.sh` mirrors the Gradle `cargo {}` block of `backend-lib/build.gradle.kts` (release profile, API 27,
-  `-Wl,-z,max-page-size=16384`) and adds `--locked`, source-path remapping and a fixed `SOURCE_DATE_EPOCH`.
-- `verify_so.sh` checks 16 KB alignment of every LOAD segment, that the network-upgrade name tables include `Nu7`,
-  and that the librustzcash sources are the pinned commit.
-- `package_aar.py` downloads the official 3.0.0 artifacts from Maven Central, checks them against
-  `official-3.0.0.sha256`, strips the libraries with the NDK's `llvm-strip --strip-unneeded` (as the Android Gradle
-  Plugin does for an AAR) and writes the four artifacts deterministically (official entry order and timestamps,
-  stored entries).
-- Compare your outputs with `EXPECTED-SHA256SUMS`. On the build machine a clean rebuild of the arm64 library and two
-  packaging runs gave identical files; rebuilding on another machine has not been tried yet.
+  `-Wl,-z,max-page-size=16384`) and adds `--locked`, source-path remapping and a fixed `SOURCE_DATE_EPOCH` (the time
+  of the last commit that touches `backend-lib`).
+- `verify_so.sh` checks one library, before or after stripping: 16 KB alignment of every LOAD segment; the
+  network-upgrade name tables list `Nu7`; the consensus branch-id table continues with `0x77190ad9` and the testnet
+  NU7 height is compiled in (`so_constants.py`); the wallet crates are the published pre-releases; no path of the
+  build machine; `RustUnifiedEncoding.toRevision0` is exported. The libraries of the official 3.0.0 AAR fail it.
+- `build_aar.sh` runs the SDK's own Gradle build once: it publishes the four artifacts into the directory with
+  `publishToMavenLocal` and runs the unit tests of `backend-lib` and `sdk-lib`. The libraries are the `build_so.sh`
+  outputs; the Android Gradle Plugin strips them (`llvm-strip --strip-unneeded` of the NDK). It writes
+  `SHA256SUMS-<version>` and `BUILD-INFO-<version>.txt` beside the artifacts. No javadoc jars: Dokka writes the
+  sections of `deprecated.html` in an order that changes from run to run, so those jars and the `.module` files
+  that record their hashes would differ between two builds of one commit.
+- Compare your outputs with `EXPECTED-SHA256SUMS`. What was checked on the build machine is written at its top;
+  a rebuild on another machine has not been tried yet. The `.aar` files are compressed zip files, so on a machine
+  with another zlib they may differ in their bytes while every entry is the same.
+
+### Use from an app
+
+The directory `build_aar.sh` fills is a Maven repository. In the app's `settings.gradle.kts`, beside `google()` and
+`mavenCentral()`:
+
+```kotlin
+exclusiveContent {
+    forRepository { maven { url = uri("/path/to/maven-repo") } }
+    filter {
+        includeVersionByRegex(
+            "cash\\.z\\.ecc\\.android",
+            "zcash-android-sdk|zcash-android-sdk-incubator|zcash-android-backend|lightwallet-client",
+            ".*-nu7-zchat\\..*"
+        )
+    }
+}
+```
+
+and the version `3.0.0-nu7-zchat.2` for `cash.z.ecc.android:zcash-android-sdk` and `zcash-android-sdk-incubator`
+(the backend and the lightwallet client follow as their dependencies). The filter keeps `kotlin-bip39`, which has
+the same group, on Maven Central. The `.module` files offer the API, runtime and sources variants. Checked with an
+Android library project: both classpaths resolve from the directory and a file that uses the API compiles.
+
+### Memory
+
+`build_aar.sh` gives the Gradle JVM `-Xmx3g -XX:MaxMetaspaceSize=1g` on the command line, the values of this
+repository's `gradle.properties`, because a user-level `~/.gradle/gradle.properties` overrides the project file. A
+512 MiB Metaspace cap from such a file stopped this build with `OutOfMemoryError: Metaspace`. Measured on the build
+machine (one Gradle JVM, Kotlin compiler in-process, two workers, every task executed): 330 MiB of Metaspace
+without the javadoc jars and 511 MiB with them, a heap of up to 1.2 GB in use, and up to 2.8 GB resident memory for
+that JVM; the unit-test JVM has a 512 MB heap. No Kotlin daemon is started.
 
 ## Tests
 
-`cd backend-lib && cargo +1.92.0 test --all-features` (68 pass; 14 live-wallet migration tests are ignored because
-they need a real wallet database). `groundtruth-016/` derives the reference digests in
-`backend-lib/src/main/rust/test_vectors.rs` with the crate versions of SDK 3.0.0's lock (`cargo run -- <path to
-sdk-incubator-lib/.../fixture/WalletFixture.kt>`).
+- Rust: `cd backend-lib && cargo +1.92.0 test --locked --all-features`: 71 pass, 14 are ignored (the live-wallet
+  migration tests, which need a real wallet database). `cargo clippy --tests --all-features -- -D warnings` is
+  clean; `backend-lib/clippy.toml` forbids the Revision 2 encoders outside `r0.rs`.
+- Kotlin, run by `build_aar.sh`: `:sdk-lib:testReleaseUnitTest` 141 tests (`StoredAddressNormalizerTest` is 3 of
+  them) and `:backend-lib:testReleaseUnitTest` 34 tests. One upstream class, `ConversionsTest`, is written for
+  JUnit 5 and is not picked up by the module's JUnit 4 runner; that is unchanged from 3.0.0.
+- Not covered by these: the JNI call from Kotlin (`RustUnifiedEncoding.toRevision0` is tested in Rust, and its
+  export is checked in each library, but no instrumented test calls it on a device), and the SDK's own
+  `androidTest` suites, which need a device or emulator.
+- `groundtruth-016/` derives the reference digests in `backend-lib/src/main/rust/test_vectors.rs` with the crate
+  versions of SDK 3.0.0's lock (`cargo run -- <path to sdk-incubator-lib/.../fixture/WalletFixture.kt>`).
 
 ## Licences
 

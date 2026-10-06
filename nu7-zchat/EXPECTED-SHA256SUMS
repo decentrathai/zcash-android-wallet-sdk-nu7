@@ -1,4 +1,41 @@
-# SHA-256 of the outputs built from backend-lib at cd9bbb01 (Rust 1.92.0, NDK 27.0.12077973), 2 Oct 2026.
+# SHA-256 of the outputs of this branch. Lines starting with # are comments (`sha256sum -c` skips them with a warning).
+#
+# 3.0.0-nu7-zchat.2: built from f3360235 (backend-lib as of 8a34c86f) on 6 Oct 2026 with Rust 1.92.0,
+# NDK 27.0.12077973, JDK 17.0.20.1, Gradle 8.13, Android Gradle Plugin 8.13.2 and Kotlin 2.3.20.
+# Checked on the build machine: the four libraries built from scratch in a second clone on 6 Oct are byte-identical
+# to those built in the first checkout on 5 Oct, and two complete build_aar.sh runs (the first checkout with every
+# task re-run, the second clone) gave the sixteen files below identically. The lightwallet-client and
+# zcash-android-sdk-incubator .aar files are also byte-identical to the official 3.0.0 files of Maven Central.
+# build_so.sh output (before stripping):
+0c0d275c655d4689f0e1494e85c941ec310850f0ae1959b0fee3016bf149d9f9  out/arm64-v8a/libzcashwalletsdk.so
+9f9d38aecc91781e107b09676537d6779513f3a071f6dbfdd821bccfa5d90fdf  out/armeabi-v7a/libzcashwalletsdk.so
+c55698bed5c1199941577e14af72d88024ab66d0857e0312782d96f7a5286896  out/x86/libzcashwalletsdk.so
+6f0a823f786960dcb7e71754e52040545ed60ca754541b55ecaf55786f3b359f  out/x86_64/libzcashwalletsdk.so
+# the same libraries as packaged in zcash-android-backend-3.0.0-nu7-zchat.2.aar (stripped by the Android Gradle Plugin):
+62c3c9c9c58f1e54ecb6543750b0eb1754f3a5141dd2248371b9b0d2bd4b9d14  jni/arm64-v8a/libzcashwalletsdk.so
+5cace61750bc6f459bf2764f88c43ac3ef14c94d646052ee8b5843d8ba3ab0b2  jni/armeabi-v7a/libzcashwalletsdk.so
+9db00bc0a60912e4b656a504fffa3acf91f698e283c48d4e554a1347ce00be1a  jni/x86/libzcashwalletsdk.so
+e6fd9b431196c883c1e13c78c3c3f58b0631485313f74099cea9112a4e1ee17b  jni/x86_64/libzcashwalletsdk.so
+# build_aar.sh 3.0.0-nu7-zchat.2 output (Maven repository paths; the content of SHA256SUMS-3.0.0-nu7-zchat.2):
+6ebb8d801e164ad69c1aa75d69565848d72cdb0345ca9bb6cf5e63a296afd699  cash/z/ecc/android/lightwallet-client/3.0.0-nu7-zchat.2/lightwallet-client-3.0.0-nu7-zchat.2-sources.jar
+ed940054f97e19b07a9dc245841682ce2367dde8f488593d36697ca6f7cc3e48  cash/z/ecc/android/lightwallet-client/3.0.0-nu7-zchat.2/lightwallet-client-3.0.0-nu7-zchat.2.aar
+8a1397c23bb601bc9e308c92e807d77742efa8035552a9b6c26cfd218165f1cf  cash/z/ecc/android/lightwallet-client/3.0.0-nu7-zchat.2/lightwallet-client-3.0.0-nu7-zchat.2.module
+dab1b57851d4fd77629976f3379fc104b964c1c76fe718421591032563d4a751  cash/z/ecc/android/lightwallet-client/3.0.0-nu7-zchat.2/lightwallet-client-3.0.0-nu7-zchat.2.pom
+0c84dd1819c7a0e1ee1a84e4d77e98403b1a5d1af948ec660b292665df91b810  cash/z/ecc/android/zcash-android-backend/3.0.0-nu7-zchat.2/zcash-android-backend-3.0.0-nu7-zchat.2-sources.jar
+95e5048f01826facbc2440f22b48f5cda7692fdcd7d42be8a976e4549367fac5  cash/z/ecc/android/zcash-android-backend/3.0.0-nu7-zchat.2/zcash-android-backend-3.0.0-nu7-zchat.2.aar
+ced7a2d4b62dc934a8f529e9f2dabd602dffba3b292dd459718486781fff873e  cash/z/ecc/android/zcash-android-backend/3.0.0-nu7-zchat.2/zcash-android-backend-3.0.0-nu7-zchat.2.module
+f885490102ebd89afebf844f990e17bf771b63e101c57c2a326dbccedf015e61  cash/z/ecc/android/zcash-android-backend/3.0.0-nu7-zchat.2/zcash-android-backend-3.0.0-nu7-zchat.2.pom
+a08d949257f099bf3bc4088f4f498fdcbe89a40cfc236b0b7c1207ecfcec6a94  cash/z/ecc/android/zcash-android-sdk-incubator/3.0.0-nu7-zchat.2/zcash-android-sdk-incubator-3.0.0-nu7-zchat.2-sources.jar
+b6bf79989daf11c69ee716912d3bc431013daf6b1184147904f9ffd4709ef79c  cash/z/ecc/android/zcash-android-sdk-incubator/3.0.0-nu7-zchat.2/zcash-android-sdk-incubator-3.0.0-nu7-zchat.2.aar
+04f7ae482bb04e51bf764454d00f3aa8065fa14a468754a511ca6ab5db4dee7b  cash/z/ecc/android/zcash-android-sdk-incubator/3.0.0-nu7-zchat.2/zcash-android-sdk-incubator-3.0.0-nu7-zchat.2.module
+1b7dc5d88b2846850a4ac7bd7d5736aef98e493fddb032f89ba451533ca99c17  cash/z/ecc/android/zcash-android-sdk-incubator/3.0.0-nu7-zchat.2/zcash-android-sdk-incubator-3.0.0-nu7-zchat.2.pom
+7965f619d8ecf912d8ec767f658f071b60d7d551fc38b3755fed54b6ee53939f  cash/z/ecc/android/zcash-android-sdk/3.0.0-nu7-zchat.2/zcash-android-sdk-3.0.0-nu7-zchat.2-sources.jar
+beff88931512aaa691c895976563c7dc7ce9f6e1a70cccefdd421a22f5b6a6ca  cash/z/ecc/android/zcash-android-sdk/3.0.0-nu7-zchat.2/zcash-android-sdk-3.0.0-nu7-zchat.2.aar
+cf7c16bcdafa1fd8f630841ab7b047d8ec74bf8bd8fa91ee266281a5d94bf6a4  cash/z/ecc/android/zcash-android-sdk/3.0.0-nu7-zchat.2/zcash-android-sdk-3.0.0-nu7-zchat.2.module
+e287e1b974ec8cdf10be4fa30ff379e4a8a0ae8f6af8810d370eafe547f9b2f2  cash/z/ecc/android/zcash-android-sdk/3.0.0-nu7-zchat.2/zcash-android-sdk-3.0.0-nu7-zchat.2.pom
+#
+# 3.0.0-nu7-zchat.1: the official 3.0.0 AARs with the libraries replaced (package_aar.py), built from backend-lib
+# at cd9bbb01 (Rust 1.92.0, NDK 27.0.12077973) on 2 Oct 2026.
 # build_so.sh output (unstripped):
 7fecc7044e76868d993694c1c1372540bef58a938aa86d39f006753fb28b8a3f  out/arm64-v8a/libzcashwalletsdk.so
 c853c369eee2f5b99eac18fec62743d2717a3bdd98d9df8508fd38e28948a562  out/armeabi-v7a/libzcashwalletsdk.so
