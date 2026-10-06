@@ -76,17 +76,19 @@ plugins.withId("org.gradle.signing") {
             }
         }
 
+        // Without a key (a local, unsigned build such as nu7-zchat/build_aar.sh) nothing is signed; with one,
+        // every publication is, as before.
         if (signingKey.isNotEmpty()) {
             useInMemoryPgpKeys(signingKey, "")
-        }
 
-        project.mavenPublications(
-            object: Action<MavenPublication>{
-                override fun execute(publication: MavenPublication) {
-                    project.gradleSigning.sign(publication)
+            project.mavenPublications(
+                object: Action<MavenPublication>{
+                    override fun execute(publication: MavenPublication) {
+                        project.gradleSigning.sign(publication)
+                    }
                 }
-            }
-        )
+            )
+        }
     }
 }
 
