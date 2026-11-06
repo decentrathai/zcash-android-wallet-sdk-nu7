@@ -62,17 +62,21 @@ fn to_r0<C: Encoding + Container>(encoded: String) -> String {
 /// The string form of `ua` that SDK 3.0.0 returned: Revision 0, with every receiver
 /// (including a transparent one, which the Revision 2 `zu` form would strip).
 pub(crate) fn encode_ua<P: Parameters>(ua: &UnifiedAddress, params: &P) -> String {
-    to_r0::<unified::Address>(ua.encode_receiver_preserving(params))
+    // zcash_keys 0.17.0 (stable) encodes at Revision 0 whenever Revision 0 can represent the
+    // address, with every receiver; `to_r0` is then a no-op and stays as the guard.
+    to_r0::<unified::Address>(ua.to_zcash_address(params.network_type()).encode())
 }
 
 /// The string form of `ufvk` that SDK 3.0.0 returned (Revision 0 `uview…`).
 pub(crate) fn encode_ufvk<P: Parameters>(ufvk: &UnifiedFullViewingKey, params: &P) -> String {
-    to_r0::<unified::Ufvk>(ufvk.encode(params))
+    // zcash_keys 0.17.0: Revision 0 when representable, else Revision 2; an error means neither
+    // revision can encode the key, which no key this SDK derives or imports can be.
+    to_r0::<unified::Ufvk>(ufvk.encode(params).expect("a UFVK has a ZIP 316 encoding"))
 }
 
 /// The string form of `uivk` that SDK 3.0.0 returned (Revision 0 `uivk…`).
 pub(crate) fn encode_uivk<P: Parameters>(uivk: &UnifiedIncomingViewingKey, params: &P) -> String {
-    to_r0::<unified::Uivk>(uivk.encode(params))
+    to_r0::<unified::Uivk>(uivk.encode(params).expect("a UIVK has a ZIP 316 encoding"))
 }
 
 /// The Revision 0 form of a Unified Address, UFVK or UIVK string; any other string (a
@@ -172,12 +176,14 @@ mod tests {
         let network = Network::MainNetwork;
         let ufvk = ufvk_for("Ben", &network);
         let ua = first_address(&ufvk, UnifiedAddressRequest::AllAvailableKeys);
-        assert_ne!(
-            digest(ua.encode(&network).as_bytes()),
+        // Stable zcash_keys 0.17.0 encodes at Revision 0 when it can: its default strings are
+        // SDK 3.0.0's again (the pre-releases differed; that was why this module exists).
+        assert_eq!(
+            digest(ua.to_zcash_address(network.network_type()).encode().as_bytes()),
             expected("Ben", "main", "ua_all")
         );
-        assert_ne!(
-            digest(ufvk.encode(&network).as_bytes()),
+        assert_eq!(
+            digest(ufvk.encode(&network).expect("UFVK encodes").as_bytes()),
             expected("Ben", "main", "ufvk")
         );
     }
@@ -194,7 +200,8 @@ mod tests {
             let decoded =
                 UnifiedFullViewingKey::decode(&network, &ufvk_r0).expect("R0 UFVK decodes");
             assert!(
-                decoded.encode(&network) == ufvk.encode(&network),
+                decoded.encode(&network).expect("UFVK encodes")
+                    == ufvk.encode(&network).expect("UFVK encodes"),
                 "UFVK content changed"
             );
 
@@ -203,7 +210,8 @@ mod tests {
             assert!(uivk_r0.starts_with(uivk_hrp), "UIVK is not Revision 0");
             let (net, revision, r0) = unified::Uivk::decode(&uivk_r0).expect("R0 UIVK decodes");
             let (_, _, r2) =
-                unified::Uivk::decode(&uivk.encode(&network)).expect("R2 UIVK decodes");
+                unified::Uivk::decode(&uivk.encode_revision(&network, Revision::R2).expect("R2 encodes"))
+                    .expect("R2 UIVK decodes");
             assert_eq!((net, revision), (network.network_type(), Revision::R0));
             assert!(r0.items() == r2.items(), "UIVK items changed");
         }
@@ -265,14 +273,14 @@ mod tests {
                 let uivk = ufvk.to_unified_incoming_viewing_key();
                 for (kind, stored) in [
                     // `tu…`: the stored form of an address with a transparent receiver.
-                    ("ua_all", all.encode_receiver_preserving(&network)),
+                    ("ua_all", all.to_zcash_address_revision(network.network_type(), Revision::R2).expect("R2 encodes").encode()),
                     // `zu…`: the stored form of a shielded-only address.
                     (
                         "ua_sapling_orchard",
-                        shielded.encode_receiver_preserving(&network),
+                        shielded.to_zcash_address_revision(network.network_type(), Revision::R2).expect("R2 encodes").encode(),
                     ),
-                    ("ufvk", ufvk.encode(&network)),
-                    ("uivk", uivk.encode(&network)),
+                    ("ufvk", ufvk.encode_revision(&network, Revision::R2).expect("R2 encodes")),
+                    ("uivk", uivk.encode_revision(&network, Revision::R2).expect("R2 encodes")),
                 ] {
                     let (_, revision, _) = match kind {
                         "ufvk" => unified::Ufvk::decode(&stored).map(|(n, r, _)| (n, r, ())),
@@ -370,8 +378,10 @@ mod tests {
                 .unwrap()
                 .expect("an address is available");
             let returned = encode_ua(&ua, &network);
-            let stored = ua.encode_receiver_preserving(&network);
-            assert!(stored != returned, "premise: this build stores Revision 2");
+            // Stable zcash_client_sqlite 0.23.0 stores the Revision 0 form when it exists, so the
+            // stored row and the returned string are the same (the pre-release builds stored R2).
+            let stored = ua.to_zcash_address(network.network_type()).encode();
+            assert_eq!(stored, returned, "the stored form is Revision 0 again");
             assert_eq!(
                 rows_equal_to(st.wallet().conn(), &stored),
                 vec![stored.clone()]

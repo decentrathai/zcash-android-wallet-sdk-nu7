@@ -4103,13 +4103,18 @@ mod tests {
         assert_eq!(branch(0, 4_465_025), NU6_3);
         assert_eq!(branch(0, 4_465_026), NU7);
         assert_eq!(branch(0, 5_000_000), NU7);
-        assert_eq!(branch(1, 4_000_000), NU6_3);
-        assert_eq!(branch(1, 10_000_000), NU6_3);
+        // Mainnet NU7 at 3,543,405 (ZIP 259; zcash_protocol 0.11.0), live since 6 Nov 2026.
+        assert_eq!(branch(1, 3_543_404), NU6_3);
+        assert_eq!(branch(1, 3_543_405), NU7);
+        assert_eq!(branch(1, 10_000_000), NU7);
         assert_eq!(
             TestNetwork.activation_height(NetworkUpgrade::Nu7),
             Some(BlockHeight::from(4_465_026))
         );
-        assert_eq!(MainNetwork.activation_height(NetworkUpgrade::Nu7), None);
+        assert_eq!(
+            MainNetwork.activation_height(NetworkUpgrade::Nu7),
+            Some(BlockHeight::from(3_543_405))
+        );
     }
 
     /// ZIP 325 metadata keys must stay byte-identical to SDK 3.0.0, or apps can no longer decrypt
@@ -4146,7 +4151,10 @@ mod tests {
                 let ufvk = UnifiedSpendingKey::from_seed(&network, &seed, account)
                     .unwrap()
                     .to_unified_full_viewing_key();
-                for ufvk_string in [r0::encode_ufvk(&ufvk, &network), ufvk.encode(&network)] {
+                for ufvk_string in [
+                    r0::encode_ufvk(&ufvk, &network),
+                    ufvk.encode_revision(&network, zcash_address::unified::Revision::R2).expect("R2 encodes"),
+                ] {
                     let keys = private_use_metadata_keys(
                         &ak,
                         Some(&ufvk_string),
