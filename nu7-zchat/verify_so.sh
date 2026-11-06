@@ -21,15 +21,16 @@ import sys; b=open(sys.argv[1],"rb").read()
 print(b.count(b"Nu6_2Nu6_3"), b.count(b"Nu6_2Nu6_3Nu7"))' "$SO")
 echo "upgrade-name tables: $tables, of which end ...Nu6_3Nu7: $with_nu7"
 [ "$with_nu7" -ge 1 ] || { echo "FAIL: no network-upgrade table lists Nu7"; fail=1; }
-# The numbers behind the name: consensus branch id 0x77190ad9 and the testnet activation height 4,465,026.
+# The numbers behind the name: consensus branch id 0x77190ad9 and the activation heights 4,465,026 (testnet) and 3,543,405 (mainnet).
 constants=$(python3 "$HERE/so_constants.py" "$SO") || fail=1
 while IFS= read -r line; do echo "${line#"$SO: "}"; done <<<"$constants"
-# The wallet crates must be the published NU7 pre-releases (their versions appear in the remapped source paths).
+# The wallet crates must be the stable NU7 releases of 21 Oct 2026 (their versions appear in the remapped source paths).
 crates=$("$TC/llvm-strings" -n 8 "$SO" | grep -oE '(zcash_client_backend|zcash_client_sqlite|zcash_keys|zcash_protocol|zcash_primitives|pczt|zcash_pool_migration)-[0-9][0-9a-z.-]*' | sed -E 's/[.-]$//' | sort -u | tr '\n' ' ')
 echo "librustzcash crates in paths: ${crates:-none}"
-for want in zcash_client_backend-0.25.0-pre.0 zcash_client_sqlite-0.23.0-pre.0 zcash_keys-0.17.0-pre.0 zcash_protocol-0.11.0-pre.0; do
-  echo "$crates" | grep -q "$want" || { echo "FAIL: $want not seen"; fail=1; }
+for want in zcash_client_backend-0.25.0 zcash_client_sqlite-0.23.0 zcash_keys-0.17.0 zcash_protocol-0.11.0; do
+  echo "$crates" | grep -qw -- "$want" || { echo "FAIL: $want not seen"; fail=1; }
 done
+echo "$crates" | grep -q -- '-pre\.' && { echo "FAIL: a pre-release wallet crate is compiled in"; fail=1; }
 git_src=$("$TC/llvm-strings" -n 8 "$SO" | grep -c 'git/checkouts/librustzcash' || true)
 [ "$git_src" = 0 ] || { echo "FAIL: librustzcash sources from a git checkout ($git_src paths)"; fail=1; }
 home_paths=$("$TC/llvm-strings" -n 8 "$SO" | grep -c "$HOME" || true)

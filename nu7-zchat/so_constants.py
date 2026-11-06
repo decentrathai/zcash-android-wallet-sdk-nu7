@@ -19,7 +19,7 @@ import sys
 
 NU6_3_BRANCH_ID = 0x37A5165B
 NU7_BRANCH_ID = 0x77190AD9
-HEIGHTS = {"testnet NU7 height 4465026": 4_465_026}
+HEIGHTS = {"testnet NU7 height 4465026": 4_465_026, "mainnet NU7 height 3543405": 3_543_405}
 MACHINES = {183: "aarch64", 40: "arm", 3: "x86", 62: "x86_64"}
 WINDOW = 3  # the second instruction of a pair follows within this many instructions
 
