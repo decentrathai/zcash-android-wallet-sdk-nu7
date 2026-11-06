@@ -28,9 +28,9 @@ while IFS= read -r line; do echo "${line#"$SO: "}"; done <<<"$constants"
 crates=$("$TC/llvm-strings" -n 8 "$SO" | grep -oE '(zcash_client_backend|zcash_client_sqlite|zcash_keys|zcash_protocol|zcash_primitives|pczt|zcash_pool_migration)-[0-9][0-9a-z.-]*' | sed -E 's/[.-]$//' | sort -u | tr '\n' ' ')
 echo "librustzcash crates in paths: ${crates:-none}"
 for want in zcash_client_backend-0.25.0 zcash_client_sqlite-0.23.0 zcash_keys-0.17.0 zcash_protocol-0.11.0; do
-  echo "$crates" | grep -qw -- "$want" || { echo "FAIL: $want not seen"; fail=1; }
+  echo "$crates" | tr ' ' '\n' | grep -qxF -- "$want" || { echo "FAIL: $want not seen (exact)"; fail=1; }
 done
-echo "$crates" | grep -q -- '-pre\.' && { echo "FAIL: a pre-release wallet crate is compiled in"; fail=1; }
+echo "$crates" | grep -qE -- '-(pre|rc|alpha|beta)' && { echo "FAIL: a pre-release wallet crate is compiled in"; fail=1; }
 git_src=$("$TC/llvm-strings" -n 8 "$SO" | grep -c 'git/checkouts/librustzcash' || true)
 [ "$git_src" = 0 ] || { echo "FAIL: librustzcash sources from a git checkout ($git_src paths)"; fail=1; }
 home_paths=$("$TC/llvm-strings" -n 8 "$SO" | grep -c "$HOME" || true)
