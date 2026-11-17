@@ -1,5 +1,39 @@
 # SHA-256 of the outputs of this branch. Lines starting with # are comments (`sha256sum -c` skips them with a warning).
 #
+# 3.0.0-nu7-zchat.3: built from e35ae48d (backend-lib Rust code as of 0f6d479c, the stable NU7 crates) under the
+# group io.github.decentrathai. Libraries: the build_so.sh outputs of 6 Nov (BUILD-INFO-.3, verify_so PASS on
+# all four). Checked on 17 Nov: two build_aar.sh runs from two clean clones on the second build PC (JDK 17.0.20.1,
+# NDK 27.0.12077973, Gradle 8.13) gave the sixteen files below identically, and every .aar and -sources.jar is
+# byte-identical to the .3 files built on the first PC from b5ee0f70 under the old cash.z.ecc.android group; the
+# .pom and .module files differ from those only by group and the ZChat POM fields.
+# build_so.sh output (before stripping):
+0be8b290afc8467514dcde356e332a8d4df40735df5f1441802b631015cac902  out/arm64-v8a/libzcashwalletsdk.so
+975e70f12c5414ebdfd5a2380e9937c53e7da7546b2c24f9f5bfe334b450d280  out/armeabi-v7a/libzcashwalletsdk.so
+b2f43f208734d294dd21de246594372afb3684b50ec3ecfa29a69f703dbf6029  out/x86/libzcashwalletsdk.so
+09df21005bbadad861b8299ce7c397371e27bcb9bd79deede74161b91a7c2ab1  out/x86_64/libzcashwalletsdk.so
+# the same libraries as packaged in zcash-android-backend-3.0.0-nu7-zchat.3.aar (stripped by the Android Gradle Plugin):
+de4c631cb65d9084f49617df2de54f18d349827eec401afc0826f5d3e3684968  jni/arm64-v8a/libzcashwalletsdk.so
+b4b7ff19c81e4249f4ba57171d297e782b95418dc953c44ec02a0a3fb90dde26  jni/armeabi-v7a/libzcashwalletsdk.so
+e4308f967f5a0a45eae1ff37aad5a419bf10918349e1e90f86e22e9664299c02  jni/x86/libzcashwalletsdk.so
+c0ace99f3cb5ff94843387b53a34aca38462a53dba83514b0d382498c6ff0d5b  jni/x86_64/libzcashwalletsdk.so
+# build_aar.sh 3.0.0-nu7-zchat.3 output (Maven repository paths; the content of SHA256SUMS-3.0.0-nu7-zchat.3):
+6ebb8d801e164ad69c1aa75d69565848d72cdb0345ca9bb6cf5e63a296afd699  io/github/decentrathai/lightwallet-client/3.0.0-nu7-zchat.3/lightwallet-client-3.0.0-nu7-zchat.3-sources.jar
+ed940054f97e19b07a9dc245841682ce2367dde8f488593d36697ca6f7cc3e48  io/github/decentrathai/lightwallet-client/3.0.0-nu7-zchat.3/lightwallet-client-3.0.0-nu7-zchat.3.aar
+dd03883bde237af268dc48ae0df18db8a77b5a91221e03e1d3beb5f815cf1988  io/github/decentrathai/lightwallet-client/3.0.0-nu7-zchat.3/lightwallet-client-3.0.0-nu7-zchat.3.module
+bf83010e935c825b48863d5a8a0076c8d25e0d844a3d8f60f0deecd52970efda  io/github/decentrathai/lightwallet-client/3.0.0-nu7-zchat.3/lightwallet-client-3.0.0-nu7-zchat.3.pom
+0c84dd1819c7a0e1ee1a84e4d77e98403b1a5d1af948ec660b292665df91b810  io/github/decentrathai/zcash-android-backend/3.0.0-nu7-zchat.3/zcash-android-backend-3.0.0-nu7-zchat.3-sources.jar
+1496713c629f3ece5b0922e90893ba25371abc7814d750a8127b39411b7f6520  io/github/decentrathai/zcash-android-backend/3.0.0-nu7-zchat.3/zcash-android-backend-3.0.0-nu7-zchat.3.aar
+bbe34734272dbe004ab4c3724433123c3f384c3ba6dff7e1823724cc12050c0f  io/github/decentrathai/zcash-android-backend/3.0.0-nu7-zchat.3/zcash-android-backend-3.0.0-nu7-zchat.3.module
+5625c25c70d209e4c9315581e37a2eb8c76ea0ed1ad4d6c1bf8ef2878cfdaaa5  io/github/decentrathai/zcash-android-backend/3.0.0-nu7-zchat.3/zcash-android-backend-3.0.0-nu7-zchat.3.pom
+a08d949257f099bf3bc4088f4f498fdcbe89a40cfc236b0b7c1207ecfcec6a94  io/github/decentrathai/zcash-android-sdk-incubator/3.0.0-nu7-zchat.3/zcash-android-sdk-incubator-3.0.0-nu7-zchat.3-sources.jar
+b6bf79989daf11c69ee716912d3bc431013daf6b1184147904f9ffd4709ef79c  io/github/decentrathai/zcash-android-sdk-incubator/3.0.0-nu7-zchat.3/zcash-android-sdk-incubator-3.0.0-nu7-zchat.3.aar
+c62f34e2fb277356f7caca07a22fbf4c6ddc9536cc137929cf00b593e99776d6  io/github/decentrathai/zcash-android-sdk-incubator/3.0.0-nu7-zchat.3/zcash-android-sdk-incubator-3.0.0-nu7-zchat.3.module
+e5b782166262879e01e471471b633324690be6ace1ec33c2aaa8b33f20e962c4  io/github/decentrathai/zcash-android-sdk-incubator/3.0.0-nu7-zchat.3/zcash-android-sdk-incubator-3.0.0-nu7-zchat.3.pom
+1f59360b4feeefad84b842ce0483396281b5a75e791a0ce5c865c2825c7e3996  io/github/decentrathai/zcash-android-sdk/3.0.0-nu7-zchat.3/zcash-android-sdk-3.0.0-nu7-zchat.3-sources.jar
+f6bda5006bdb4166c1700bcc2666b16c002bb646e47b229c038d01e044ec5d69  io/github/decentrathai/zcash-android-sdk/3.0.0-nu7-zchat.3/zcash-android-sdk-3.0.0-nu7-zchat.3.aar
+04a35e9233300f0d3035eb511a54b1fb6b0a26bfcdbb9cc31bab86b25f435a9d  io/github/decentrathai/zcash-android-sdk/3.0.0-nu7-zchat.3/zcash-android-sdk-3.0.0-nu7-zchat.3.module
+065b23aa65336168e305de4ccb9e537346d6b01d643a77f9a16074664610a0df  io/github/decentrathai/zcash-android-sdk/3.0.0-nu7-zchat.3/zcash-android-sdk-3.0.0-nu7-zchat.3.pom
+#
 # 3.0.0-nu7-zchat.2: built from f3360235 (backend-lib as of 8a34c86f) on 6 Oct 2026 with Rust 1.92.0,
 # NDK 27.0.12077973, JDK 17.0.20.1, Gradle 8.13, Android Gradle Plugin 8.13.2 and Kotlin 2.3.20.
 # Checked on the build machine: the four libraries built from scratch in a second clone on 6 Oct are byte-identical

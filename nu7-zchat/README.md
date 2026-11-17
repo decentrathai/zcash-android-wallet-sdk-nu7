@@ -80,10 +80,11 @@ nu7-zchat/build_aar.sh 3.0.0-nu7-zchat.3 /path/to/maven-repo nu7-zchat/out
   `SHA256SUMS-<version>` and `BUILD-INFO-<version>.txt` beside the artifacts. No javadoc jars: Dokka writes the
   sections of `deprecated.html` in an order that changes from run to run, so those jars and the `.module` files
   that record their hashes would differ between two builds of one commit.
-- Compare your outputs with `EXPECTED-SHA256SUMS` (it holds `.1` and `.2`; the `.3` sums are added once `.3` is
-  built twice under the `io.github.decentrathai` group, since the group is part of every `.pom` and `.module`). What was checked on the build machine is written at its top;
-  a rebuild on another machine has not been tried yet. The `.aar` files are compressed zip files, so on a machine
-  with another zlib they may differ in their bytes while every entry is the same.
+- Compare your outputs with `EXPECTED-SHA256SUMS` (it holds `.1`, `.2` and `.3`; `.3` was built twice from two clean
+  clones under the `io.github.decentrathai` group, since the group is part of every `.pom` and `.module`). What was
+  checked is written at its top: the `.3` .aar and sources jars came out identical on two PCs. The `.aar` files are
+  compressed zip files, so on a machine with another zlib they may differ in their bytes while every entry is the
+  same.
 
 ### Use from an app
 
