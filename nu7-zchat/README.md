@@ -11,7 +11,7 @@ changes the SDK version and adds the repository that holds these files; no app c
 official 3.0.0 AARs with only the native libraries replaced; `package_aar.py` built it and stays here for that.
 Version `.2` used the NU7 pre-release crates and had no mainnet NU7 height.)
 
-The artifacts are published on Maven Central under the group `io.github.decentrathai` (gradle.properties
+The artifacts are meant for Maven Central under the group `io.github.decentrathai` (gradle.properties
 `ZCASH_PUBLISH_GROUP`), not under the official `cash.z.ecc.android` group, so they never replace the official SDK
 by accident.
 

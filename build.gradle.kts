@@ -41,6 +41,7 @@ tasks {
                 "mavenCentralUsername" to "",
                 "mavenCentralPassword" to "",
                 "ZCASH_ASCII_GPG_KEY" to "",
+                "ZCASH_ASCII_GPG_KEY_PASSWORD" to "",
 
                 "IS_SNAPSHOT" to "true",
 

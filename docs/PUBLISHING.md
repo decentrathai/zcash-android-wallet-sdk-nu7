@@ -1,4 +1,9 @@
 # Overview
+
+> **ZChat NU7 build (this fork):** the steps below are upstream's and do not apply here. This fork has no
+> deploy workflows and publishes only through `nu7-zchat/publish_central.sh`, which uploads one signed deployment
+> that is not released; someone reviews it on central.sonatype.com and presses Publish. Never use
+> `publishAndReleaseToMavenCentral` or a snapshot publish for it (see `nu7-zchat/README.md`).
 We aim for the main branch of the repository to always be in a releasable state.
 
 Two types of artifacts can be published:

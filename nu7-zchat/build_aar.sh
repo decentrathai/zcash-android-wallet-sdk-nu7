@@ -48,7 +48,8 @@ JVMARGS=${GRADLE_JVMARGS:--Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8}
 WORKERS=${GRADLE_WORKERS:-2}
 read -r -a EXTRA_ARGS <<<"${GRADLE_ARGS:-}"
 ABIS=(arm64-v8a armeabi-v7a x86 x86_64)
-# The Maven group of this build (gradle.properties ZCASH_PUBLISH_GROUP) as a repository path, e.g. xyz/zsend/zcash.
+# The Maven group of this build (gradle.properties ZCASH_PUBLISH_GROUP) as a repository path, e.g.
+# io/github/decentrathai. Read from the file: do not override ZCASH_PUBLISH_GROUP with -P or the environment.
 GROUP_PATH=$(sed -n 's/^ZCASH_PUBLISH_GROUP=//p' "$SDK/gradle.properties" | tr . /)
 [ -n "$GROUP_PATH" ] || { echo "no ZCASH_PUBLISH_GROUP in $SDK/gradle.properties" >&2; exit 2; }
 
@@ -82,6 +83,10 @@ echo "build_aar: version=$VERSION $HEAD_LINE java=$JAVA_VERSION jvmargs=$JVMARGS
   -PZCASH_RELEASE_KEY_ALIAS= -PZCASH_RELEASE_KEY_ALIAS_PASSWORD= \
   -x cargoBuild -x cargoBuildArm -x cargoBuildArm64 -x cargoBuildX86 -x cargoBuildX86_64 \
   ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} "${TASKS[@]}"
+
+# Maven Central tasks stage into build/publish/staging, not into $REPO: publish_central.sh checks that staging
+# directory itself, so the local-repository listing below does not apply.
+case " ${TASKS[*]} " in *MavenCentral*) echo "build_aar: Maven Central tasks done (no local repository listing)"; exit 0 ;; esac
 
 # The repository is complete when each artifact has exactly its four files; the listing covers those sixteen.
 # (publishToMavenLocal also writes maven-metadata-local.xml beside the version folders. It carries the time of the
