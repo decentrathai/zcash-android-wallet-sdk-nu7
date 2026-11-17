@@ -11,7 +11,7 @@ changes the SDK version and adds the repository that holds these files; no app c
 official 3.0.0 AARs with only the native libraries replaced; `package_aar.py` built it and stays here for that.
 Version `.2` used the NU7 pre-release crates and had no mainnet NU7 height.)
 
-The artifacts are published on Maven Central under the group `xyz.zsend.zcash` (gradle.properties
+The artifacts are published on Maven Central under the group `io.github.decentrathai` (gradle.properties
 `ZCASH_PUBLISH_GROUP`), not under the official `cash.z.ecc.android` group, so they never replace the official SDK
 by accident.
 
@@ -81,7 +81,7 @@ nu7-zchat/build_aar.sh 3.0.0-nu7-zchat.3 /path/to/maven-repo nu7-zchat/out
   sections of `deprecated.html` in an order that changes from run to run, so those jars and the `.module` files
   that record their hashes would differ between two builds of one commit.
 - Compare your outputs with `EXPECTED-SHA256SUMS` (it holds `.1` and `.2`; the `.3` sums are added once `.3` is
-  built twice under the `xyz.zsend.zcash` group, since the group is part of every `.pom` and `.module`). What was checked on the build machine is written at its top;
+  built twice under the `io.github.decentrathai` group, since the group is part of every `.pom` and `.module`). What was checked on the build machine is written at its top;
   a rebuild on another machine has not been tried yet. The `.aar` files are compressed zip files, so on a machine
   with another zlib they may differ in their bytes while every entry is the same.
 
@@ -90,9 +90,9 @@ nu7-zchat/build_aar.sh 3.0.0-nu7-zchat.3 /path/to/maven-repo nu7-zchat/out
 From Maven Central (`mavenCentral()` in the app's repositories):
 
 ```kotlin
-implementation("xyz.zsend.zcash:zcash-android-sdk:3.0.0-nu7-zchat.3")
+implementation("io.github.decentrathai:zcash-android-sdk:3.0.0-nu7-zchat.3")
 // optional, as with the official SDK:
-implementation("xyz.zsend.zcash:zcash-android-sdk-incubator:3.0.0-nu7-zchat.3")
+implementation("io.github.decentrathai:zcash-android-sdk-incubator:3.0.0-nu7-zchat.3")
 ```
 
 The backend and the lightwallet client follow as dependencies; `kotlin-bip39` stays
@@ -104,7 +104,7 @@ the groups differ, so Gradle does not pick one of them, and the build fails with
 `./gradlew :app:dependencies`, or run `verify_so.sh` on the `libzcashwalletsdk.so` of the built APK.
 
 A local directory filled by `build_aar.sh` is a Maven repository too: add `maven { url = uri("/path/to/maven-repo") }`
-before `mavenCentral()`, ideally inside `exclusiveContent { ... filter { includeGroup("xyz.zsend.zcash") } }`.
+before `mavenCentral()`, ideally inside `exclusiveContent { ... filter { includeGroup("io.github.decentrathai") } }`.
 
 ### Memory
 
