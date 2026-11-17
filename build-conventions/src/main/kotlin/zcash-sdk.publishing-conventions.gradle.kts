@@ -9,8 +9,12 @@ val publicationVariant = "release"
 val isSnapshot = project.property("IS_SNAPSHOT").toString().toBoolean()
 val myVersion = project.property("LIBRARY_VERSION").toString()
 
-val myGroup = "cash.z.ecc.android"
+// ZChat's NU7 build is published under its own group (gradle.properties ZCASH_PUBLISH_GROUP), never the official
+// cash.z.ecc.android one. Dependencies that are not built here (kotlin-bip39) keep their own coordinates.
+val myGroup = project.property("ZCASH_PUBLISH_GROUP").toString()
 project.group = myGroup
+val githubRepo = project.property("ZCASH_PUBLISH_GITHUB_REPO").toString()
+val repoUrl = "https://github.com/$githubRepo"
 
 // The javadoc jar is published unless -PZCASH_PUBLISH_JAVADOC_JAR=false is given. A build whose files must be
 // reproducible (nu7-zchat/build_aar.sh) leaves it out: Dokka writes the sections of deprecated.html in an order
@@ -34,17 +38,17 @@ extensions.getByType<MavenPublishBaseExtension>().apply {
     )
 
     pom {
-        name.set("Zcash Android Wallet SDK")
+        name.set("Zcash Android Wallet SDK, ZChat NU7 build")
         description.set(
-            "This lightweight SDK connects Android to Zcash, allowing third-party " +
-                "Android apps to send and receive shielded transactions easily, securely and privately."
+            "ZChat's build of the Zcash Android Wallet SDK 3.0.0 with NU7 support (librustzcash NU7 crates). " +
+                "Not an official Electric Coin Co. or Zcash Open Development Lab release."
         )
-        url.set("https://github.com/zcash/zcash-android-wallet-sdk/")
+        url.set("$repoUrl/")
         inceptionYear.set("2018")
         scm {
-            url.set("https://github.com/zcash/zcash-android-wallet-sdk/")
-            connection.set("scm:git:git://github.com/zcash/zcash-android-wallet-sdk.git")
-            developerConnection.set("scm:git:ssh://git@github.com/zcash/zcash-android-wallet-sdk.git")
+            url.set("$repoUrl/")
+            connection.set("scm:git:git://github.com/$githubRepo.git")
+            developerConnection.set("scm:git:ssh://git@github.com/$githubRepo.git")
         }
         developers {
             developer {
@@ -52,11 +56,16 @@ extensions.getByType<MavenPublishBaseExtension>().apply {
                 name.set("Zcash Open Development Lab")
                 url.set("https://github.com/zcash/")
             }
+            developer {
+                id.set("zchat")
+                name.set("ZChat")
+                url.set("https://github.com/${githubRepo.substringBefore('/')}/")
+            }
         }
         licenses {
             license {
                 name.set("MIT License")
-                url.set("https://github.com/zcash/zcash-android-wallet-sdk/blob/main/LICENSE")
+                url.set("$repoUrl/blob/main/LICENSE")
                 distribution.set("repo")
             }
         }
@@ -81,10 +90,12 @@ plugins.withId("org.gradle.signing") {
             }
         }
 
+        val signingKeyPassword = project.findProperty("ZCASH_ASCII_GPG_KEY_PASSWORD")?.toString() ?: ""
+
         // Without a key (a local, unsigned build such as nu7-zchat/build_aar.sh) nothing is signed; with one,
         // every publication is, as before.
         if (signingKey.isNotEmpty()) {
-            useInMemoryPgpKeys(signingKey, "")
+            useInMemoryPgpKeys(signingKey, signingKeyPassword)
 
             project.mavenPublications(
                 object: Action<MavenPublication>{
@@ -93,6 +104,13 @@ plugins.withId("org.gradle.signing") {
                     }
                 }
             )
+        } else {
+            // Maven Central refuses unsigned files; stop before anything is uploaded rather than after.
+            project.gradle.taskGraph.whenReady {
+                if (allTasks.any { it.name.contains("MavenCentral") }) {
+                    throw GradleException("Publishing to Maven Central needs ZCASH_ASCII_GPG_KEY (unsigned build)")
+                }
+            }
         }
     }
 }
