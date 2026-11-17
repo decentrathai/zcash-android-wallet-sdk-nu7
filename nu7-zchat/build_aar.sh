@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # build_aar.sh <version> <maven-repo-dir> <so-dir> [gradle task ...] — build the four SDK artifacts from source and
-# publish them into a local Maven repository directory (never to a remote; the artifacts are not signed).
+# publish them into a local Maven repository directory (the artifacts are not signed). It never uploads by itself;
+# publish_central.sh passes the Maven Central tasks, signed, for the one public upload.
 #
 # Without tasks, one Gradle run publishes lightwallet-client, zcash-android-backend, zcash-android-sdk and
 # zcash-android-sdk-incubator (.aar, .pom, .module and the sources jar of each) and runs the unit tests of
@@ -47,6 +48,9 @@ JVMARGS=${GRADLE_JVMARGS:--Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8}
 WORKERS=${GRADLE_WORKERS:-2}
 read -r -a EXTRA_ARGS <<<"${GRADLE_ARGS:-}"
 ABIS=(arm64-v8a armeabi-v7a x86 x86_64)
+# The Maven group of this build (gradle.properties ZCASH_PUBLISH_GROUP) as a repository path, e.g. xyz/zsend/zcash.
+GROUP_PATH=$(sed -n 's/^ZCASH_PUBLISH_GROUP=//p' "$SDK/gradle.properties" | tr . /)
+[ -n "$GROUP_PATH" ] || { echo "no ZCASH_PUBLISH_GROUP in $SDK/gradle.properties" >&2; exit 2; }
 
 NDK_VERSION=$(sed -n 's/^ANDROID_NDK_VERSION=//p' "$SDK/gradle.properties")
 [ -d "$ANDROID_HOME/ndk/$NDK_VERSION" ] ||
@@ -85,7 +89,7 @@ echo "build_aar: version=$VERSION $HEAD_LINE java=$JAVA_VERSION jvmargs=$JVMARGS
 cd "$REPO"
 problems=0
 for artifact in lightwallet-client zcash-android-backend zcash-android-sdk zcash-android-sdk-incubator; do
-  dir=cash/z/ecc/android/$artifact/$VERSION
+  dir=$GROUP_PATH/$artifact/$VERSION
   for suffix in .aar .pom .module -sources.jar; do
     [ -f "$dir/$artifact-$VERSION$suffix" ] || { echo "not built yet: $dir/$artifact-$VERSION$suffix"; problems=$((problems + 1)); }
   done
@@ -98,6 +102,7 @@ if [ "$problems" != 0 ]; then
 fi
 {
   echo "version=$VERSION"
+  echo "group=$(echo "$GROUP_PATH" | tr / .)"
   echo "$HEAD_LINE"
   for abi in "${ABIS[@]}"; do
     echo "so $abi sha256=$(sha256sum "$SO_DIR/$abi/libzcashwalletsdk.so" | cut -d' ' -f1) (build_so.sh output, before stripping)"
@@ -107,4 +112,4 @@ fi
   echo "gradle_jvmargs=$JVMARGS workers=$WORKERS"
 } > "BUILD-INFO-$VERSION.txt"
 cat "BUILD-INFO-$VERSION.txt"
-find cash/z/ecc/android -path "*/$VERSION/*" -type f | sort | xargs sha256sum | tee "SHA256SUMS-$VERSION"
+find "$GROUP_PATH" -path "*/$VERSION/*" -type f | sort | xargs sha256sum | tee "SHA256SUMS-$VERSION"
